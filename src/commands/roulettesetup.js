@@ -5,8 +5,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 export default {
     data: {
         name: 'roulettesetup',
-        description: 'Magsimula ng isang Event Roulette gamit ang Reactions!',
-        // Optional: Pwede mong i-convert ito sa SlashCommandBuilder kung mas gusto mo, pero gumagana ito sa array registration mo sa index.js
+        description: 'Magsimula ng isang visual Wheel of Names roulette gamit ang Reactions!',
         toJSON() {
             return { name: this.name, description: this.description };
         }
@@ -14,99 +13,101 @@ export default {
 
     async execute(interaction) {
         try {
-            const JOIN_EMOJI = "🎟️"; // Ang emoji na pipindutin ng mga sasali
-            let joinTimer = 60; // Oras sa segundo para makapag-react ang mga tao (60 seconds)
+            const JOIN_EMOJI = "🎟️"; 
+            let joinTimer = 60; // 60 seconds salihan
 
             // 1. Unang Embed: Pagpapasali sa mga user
             const setupEmbed = new EmbedBuilder()
-                .setTitle("🎡 Event Roulette: Sali na!")
-                .setDescription(`Mag-react ng **${JOIN_EMOJI}** sa ibaba para mapasama ang pangalan mo sa roleta!\n\n⏳ **Oras para sumali:** \`${joinTimer}s\``)
+                .setTitle("🎡 Visual Event Roulette: Sali na!")
+                .setDescription(`Mag-react ng **${JOIN_EMOJI}** sa ibaba para mapasama ang pangalan mo sa totoong Wheel of Names!\n\n⏳ **Oras para sumali:** \`${joinTimer}s\``)
                 .setColor(0x5865F2)
                 .setThumbnail("https://i.imgur.com/vAM9gZ2.gif")
-                .setFooter({ text: "Iyong Bot Official | Roulette System" });
+                .setFooter({ text: "Iyong Bot Official | Visual Roulette" });
 
             const message = await interaction.reply({ embeds: [setupEmbed], fetchReply: true });
-            
-            // Awtomatikong mag-react ang bot ng ticket emoji para pipindutin na lang nila
             await message.react(JOIN_EMOJI);
 
-            // 2. Countdown Loop (I-a-update ang embed bawat ilang segundo para sa timer)
+            // Countdown Loop para sa timer
             const timerInterval = setInterval(async () => {
                 joinTimer -= 5;
                 if (joinTimer <= 0) {
                     clearInterval(timerInterval);
                 } else {
                     const updateEmbed = new EmbedBuilder()
-                        .setTitle("🎡 Event Roulette: Sali na!")
-                        .setDescription(`Mag-react ng **${JOIN_EMOJI}** sa ibaba para mapasama ang pangalan mo sa roleta!\n\n⏳ **Oras para sumali:** \`${joinTimer}s\``)
+                        .setTitle("🎡 Visual Event Roulette: Sali na!")
+                        .setDescription(`Mag-react ng **${JOIN_EMOJI}** sa ibaba para mapasama ang pangalan mo sa totoong Wheel of Names!\n\n⏳ **Oras para sumali:** \`${joinTimer}s\``)
                         .setColor(0x5865F2)
                         .setThumbnail("https://i.imgur.com/vAM9gZ2.gif")
-                        .setFooter({ text: "Iyong Bot Official | Roulette System" });
+                        .setFooter({ text: "Iyong Bot Official | Visual Roulette" });
                     
                     await interaction.editReply({ embeds: [updateEmbed] }).catch(() => clearInterval(timerInterval));
                 }
             }, 5000);
 
-            // Maghintay hanggang matapos ang 60 seconds registration
+            // Maghintay ng 60 seconds
             await sleep(60 * 1000);
 
-            // 3. Kolektahin ang mga nag-react
+            // 2. Kolektahin ang mga sumali
             const freshMessage = await interaction.channel.messages.fetch(message.id);
             const reaction = freshMessage.reactions.cache.get(JOIN_EMOJI);
             
             let participants = [];
             if (reaction) {
                 const users = await reaction.users.fetch();
-                // Kunin lahat ng nag-react MALIBAN sa mismong bot
+                // Kunin ang Discord tag o username ng mga totoong tao
                 participants = users.filter(user => !user.bot).map(user => user);
             }
 
-            // Awtomatikong tanggalin ang mga reactions para sarado na ang salihan
             await freshMessage.reactions.removeAll().catch(() => {});
 
-            // Kung walang sumali, ihinto ang laro
             if (participants.length === 0) {
                 const noParticipantsEmbed = new EmbedBuilder()
                     .setTitle("🎡 Roulette Cancelled")
-                    .setDescription("❌ Walang sumali sa roulette kaya hindi ito itinuloy.")
+                    .setDescription("❌ Walang sumali kaya hindi natuloy ang pag-ikot ng gulong.")
                     .setColor(0xED4245);
                 return await interaction.editReply({ embeds: [noParticipantsEmbed] });
             }
 
-            // 4. Spinning Phase (Tatakbo ng eksaktong 10 seconds gamit ang frames)
+            // 3. 10-Second Spinning Phase (Visual Illusion Simulation)
             const spinFrames = [
-                "🔄 [ 🟥 🟥 🟥 🟥 🟥 ] Shuffling names...",
-                "🔄 [ 🟨 🟨 🟨 🟨 🟨 ] Mixing entries...",
-                "🔄 [ 🟩 🟩 🟩 🟩 🟩 ] Spinning the wheel...",
-                "🎰 [ 🟦 🟦 🟦 🟦 🟦 ] Slowing down...",
-                "✨ Selecting the ultimate winner... ✨"
+                " Shuffling names into the wheel slices...",
+                " Generating custom Wheel of Names interface...",
+                " Setting up colors and pointer...",
+                " Ready! Spinning the wheel now... 🎡",
+                " ✨ Choosing winner from the entries... ✨"
             ];
 
             for (const frame of spinFrames) {
                 const spinEmbed = new EmbedBuilder()
-                    .setTitle("🎰 Ang Roleta ay Umiikot na! 🎰")
-                    .setDescription(`### ${frame}\nBinabasa ang listahan ng mga sumali...`)
+                    .setTitle("🎰 Inihahanda ang Wheel of Names... 🎰")
+                    .setDescription(`### ${frame}\nKasalukuyang pinoproseso ang gulong...`)
                     .setColor(0xFEE75C)
-                    .setFooter({ text: "Processing winner... | Iyong Bot Official" });
+                    .setThumbnail("https://i.imgur.com/vAM9gZ2.gif")
+                    .setFooter({ text: "Processing... | Iyong Bot Official" });
                 
                 await interaction.editReply({ embeds: [spinEmbed] });
-                await sleep(2000); // 5 frames x 2 seconds = 10 Seconds na pag-ikot!
+                await sleep(2000); // 5 frames x 2 seconds = 10 Seconds spinning presentation!
             }
 
-            // 5. Pagpili sa Winner
+            // 4. Pagpili ng Winner at Pag-gawa ng Custom Wheel Link
             const winner = participants[Math.floor(Math.random() * participants.length)];
+            
+            // Gumawa tayo ng Wheel of Names shareable link gamit ang names ng participants para pwede nilang laruin ulit live!
+            // I-eencode natin ang mga pangalan para maging valid URL parameters
+            const encodedNames = participants.map(u => encodeURIComponent(u.username)).join(',');
+            const wheelLink = `https://wheelofnames.com/?names=${encodedNames}`;
 
-            // Pangwakas na Embed: Mention lang sa kaniya nang walang pinapakitang item/reward!
+            // 5. Pangwakas na Embed
             const winnerEmbed = new EmbedBuilder()
-                .setTitle("🎉 ROULETTE WINNER! 🎉")
-                .setDescription(`### Ang mapalad na nabunot sa roleta ay walang iba kundi si:\n🏆 **<@${winner.id}>** (${winner.username}) 🏆\n\nSalamat sa lahat ng sumali!`)
+                .setTitle("🎉 TOTOONG ROULETTE WINNER! 🎉")
+                .setDescription(`### 🏆 Ang mapalad na nabunot sa gulong: **<@${winner.id}>** (${winner.username}) 🏆\n\n🔗 **Gusto mo bang makita ang gulong niyo?**\nPanoorin o i-spin ulit ang inyong custom wheel dito:\n👉 [I-click para makita ang Wheel of Names niyo!](${wheelLink})`)
                 .setColor(0x57F287)
                 .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
-                .setFooter({ text: "Roulette Completed! | Iyong Bot Official" });
+                .setFooter({ text: "Visual Roulette Completed! | wheelofnames.com" });
 
-            // Mag-reply at i-mention siya sa mismong content para tumunog ang notification niya sa Discord
+            // I-mention ang winner sa chat text para alertado siya agad!
             return await interaction.editReply({ 
-                content: `🎉 Congratulations <@${winner.id}>! Ikaw ang nanalo sa roleta!`, 
+                content: `🏆 Congratulations <@${winner.id}>! Ikaw ang nanalo sa Wheel of Names!`, 
                 embeds: [winnerEmbed] 
             });
 
