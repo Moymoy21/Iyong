@@ -1,0 +1,15 @@
+{
+  "name": "iyong-bot-fresh",
+  "version": "1.0.0",
+  "description": "Isang sariwa at malinis na Discord Bot",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  }
+}
+
