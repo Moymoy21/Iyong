@@ -128,8 +128,10 @@ export default {
 
                 // 3. Pagpili ng Winner
                 const winner = participants[Math.floor(Math.random() * participants.length)];
+                
+                // Gagamitin natin ang custom blank template page mo at idudugtong ang mga pangalan ng sumali!
                 const encodedNames = participants.map(u => encodeURIComponent(u.username)).join(',');
-                const wheelBaseUrl = `https://wheelofnames.com/?names=${encodedNames}`;
+                const wheelBaseUrl = `https://wheelofnames.com/yvy-ukr?names=${encodedNames}`;
 
                 const finalFiltered = participants.filter(u => u.id !== winner.id);
                 const finalShuffled = [winner, ...shuffleArray(finalFiltered)];
@@ -143,8 +145,9 @@ export default {
                     .setDescription(
                         `### 🏆 Ang mapalad na nabunot sa gulong:\n🏆 **<@${winner.id}>** (${winner.username}) 🏆\n\n` +
                         `📋 **Huling Resulta ng Listahan:**\n${finalRealListText}\n\n` +
-                        `🔗 **Gusto niyo bang laruin ang listahan niyo sa web?**\n👉 [I-click ang link para sa Wheel of Names niyo!](${wheelBaseUrl})`
+                        `🔗 **Gusto niyo bang makita ang mga pangalan niyo live sa gulong niyo?**\n👉 [I-click ang link para sa Wheel of Names niyo!](${wheelBaseUrl})`
                     )
+                    .setColor(0x57F2 green)
                     .setColor(0x57F287)
                     .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
                     .setFooter({ text: "Visual Roulette Completed! | wheelofnames.com" });
