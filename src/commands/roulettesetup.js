@@ -77,20 +77,22 @@ export default {
             new ButtonBuilder().setCustomId(START_ID).setLabel("Start Roulette 🚀").setStyle(ButtonStyle.Success)
         );
 
+        // Panimulang ID para sa pinakaunang image upload
+        const initialFileName = `wheel-${Date.now()}.png`;
+
         const initialEmbed = new EmbedBuilder()
             .setTitle("🎉 GIVEAWAY STARTED!")
             .setDescription(`Item: **${item}**\nHost: <@${hostId}>`)
             .setColor(0x5865F2)
-            .setImage('attachment://wheel.png'); // Palaging malaking roleta ang makikita
+            .setImage(`attachment://${initialFileName}`);
 
-        // Kung may item image, ginawa nating thumbnail (maliit sa gilid) para hindi matakpan ang roleta
         if (img) initialEmbed.setThumbnail(img); 
 
         const initialBuffer = await generateWheelImage([], 0);
         const filesPayload = [];
 
         if (initialBuffer) {
-            filesPayload.push(new AttachmentBuilder(initialBuffer, { name: 'wheel.png' }));
+            filesPayload.push(new AttachmentBuilder(initialBuffer, { name: initialFileName }));
         }
 
         let msg = await interaction.editReply({
@@ -107,17 +109,18 @@ export default {
 
             const currentWheelBuffer = await generateWheelImage(pList, 0);
             const midFiles = [];
+            const rollingFileName = `wheel-rolling-${Date.now()}.png`; // Dynamic rolling key
             
             const countdownEmbed = new EmbedBuilder()
                 .setTitle("🎰 ROLLING THE WHEEL...")
                 .setDescription(`Item: **${item}**\n\n**Ang gulong ay umiikot na...**\nStatus: 🕒 Kinakalkula ang resulta...`)
                 .setColor(0xFEE75C)
-                .setImage('attachment://wheel.png'); // Nananatiling visible si roleta habang naglo-load!
+                .setImage(`attachment://${rollingFileName}`);
                 
             if (img) countdownEmbed.setThumbnail(img);
 
             if (currentWheelBuffer) {
-                midFiles.push(new AttachmentBuilder(currentWheelBuffer, { name: 'wheel.png' }));
+                midFiles.push(new AttachmentBuilder(currentWheelBuffer, { name: rollingFileName }));
             }
 
             await interaction.editReply({
@@ -135,16 +138,17 @@ export default {
             
             const buf = await generateWheelImage(pList, targetRotation);
             const winner = pList[winnerIdx];
+            const winnerFileName = `wheel-winner-${Date.now()}.png`; // Dynamic winner key
             
             const embed = new EmbedBuilder()
                 .setTitle("🎉 WINNER! 🎉").setColor(0x57F287)
                 .setDescription(`🏆 Nanalo ng **${item}**: <@${winner.id}>\n\n📋 **Listahan:**\n${pList.map((u, i) => `${i===winnerIdx?'👑':`[${i+1}]`} **${u.username}** ${i===winnerIdx?'👈':''}`).join('\n')}`)
-                .setThumbnail(winner.displayAvatarURL()) // Pinalitan ng profile avatar ng nanalo ang maliit na thumbnail
-                .setImage('attachment://wheel.png'); // Huling pwesto ng nanalong roleta
+                .setThumbnail(winner.displayAvatarURL())
+                .setImage(`attachment://${winnerFileName}`);
 
             const finalFiles = [];
             if (buf) {
-                finalFiles.push(new AttachmentBuilder(buf, { name: 'wheel.png' }));
+                finalFiles.push(new AttachmentBuilder(buf, { name: winnerFileName }));
             }
 
             const finalMsg = await interaction.editReply({
@@ -174,10 +178,18 @@ export default {
                 
                 const updateBuffer = await generateWheelImage([...participants], 0);
                 const enterFiles = [];
-                const freshEmbed = EmbedBuilder.from(initialEmbed);
+                const enterFileName = `wheel-enter-${Date.now()}.png`; // Dynamic register key
+                
+                const freshEmbed = new EmbedBuilder()
+                    .setTitle("🎉 GIVEAWAY STARTED!")
+                    .setDescription(`Item: **${item}**\nHost: <@${hostId}>`)
+                    .setColor(0x5865F2)
+                    .setImage(`attachment://${enterFileName}`);
+
+                if (img) freshEmbed.setThumbnail(img);
 
                 if (updateBuffer) {
-                    enterFiles.push(new AttachmentBuilder(updateBuffer, { name: 'wheel.png' }));
+                    enterFiles.push(new AttachmentBuilder(updateBuffer, { name: enterFileName }));
                 }
 
                 await interaction.editReply({ 
@@ -187,11 +199,4 @@ export default {
                 });
             } else if (i.customId === START_ID) {
                 if (i.user.id !== hostId) return i.reply({ ephemeral: true, content: "Host lang pwede!" });
-                if (participants.size === 0) return i.reply({ ephemeral: true, content: "Kailangan ng kahit isang kasali para masimulan!" });
-                await i.deferUpdate(); 
-                collector.stop();
-                await runSpin([...participants]);
-            }
-        });
-    }
-};
+                
