@@ -72,16 +72,15 @@ export default {
             new ButtonBuilder().setCustomId(START_ID).setLabel("Start Roulette 🚀").setStyle(ButtonStyle.Success)
         );
 
-        // INAYOS: Kung may image ang item, ginawa nating malaking Image para pwedeng i-click at i-zoom
         const initialEmbed = new EmbedBuilder()
             .setTitle("🎉 GIVEAWAY STARTED!")
             .setDescription(`Item: **${item}**\nHost: <@${hostId}>`)
             .setColor(0x5865F2);
 
         if (img) {
-            initialEmbed.setImage(img); // Malaking clickable item image
+            initialEmbed.setImage(img); 
         } else {
-            initialEmbed.setImage('attachment://wheel.png'); // Kung walang item image, gulong ang ipakita
+            initialEmbed.setImage('attachment://wheel.png'); 
         }
 
         let msg = await interaction.reply({
@@ -98,36 +97,36 @@ export default {
             const winnerIdx = Math.floor(Math.random() * pList.length);
             const sliceAngle = (2 * Math.PI) / pList.length;
             
-            // Nagdagdag ng karagdagang full rotations (5 * 2*PI) para mas umikot nang marami
-            const targetRotation = (winnerIdx * -sliceAngle) + (Math.PI * 2) + (Math.PI * 10);
+            const targetRotation = (winnerIdx * -sliceAngle) + (Math.PI * 2) + (Math.PI * 6);
             
-            // SMOOTHING: Itinaas sa 35 ticks at ibinaba sa 150ms ang delay para swabe tingnan sa Discord rate limits
-            const totalTicks = 35; 
+            // LIGTAS NA BILANG NG TICKS PARA KASYA SA 3-SECOND GATEWAY AT RATE LIMITS
+            const totalTicks = 14; 
 
             for (let i = 0; i <= totalTicks; i++) {
                 const t = i / totalTicks;
-                // Cubic Ease Out formula: Mas mabilis sa umpisa, dahan-dahang hihinto sa dulo
                 const easeOutCubic = 1 - Math.pow(1 - t, 3);
                 
                 const rot = (targetRotation * easeOutCubic) + (Math.PI * 0.5);
                 const buf = await generateWheelImage(pList, rot);
                 
-                await interaction.editReply({ files: [new AttachmentBuilder(buf, { name: 'wheel.png' })] });
-                await sleep(150); 
+                // Gagamit ng try-catch block para hindi mag-crash ang bot sakaling magka-delay sa network
+                try {
+                    await interaction.editReply({ files: [new AttachmentBuilder(buf, { name: 'wheel.png' })] });
+                } catch (e) { console.error("Rate limit workaround triggered."); }
+                await sleep(220); // Mas ligtas na pagitan ng millisecond upang maiwasan ang spam block
             }
 
             const winner = pList[winnerIdx];
             
-            // INAYOS: Layout para sa Winner screen
             const embed = new EmbedBuilder()
                 .setTitle("🎉 WINNER! 🎉").setColor(0x57F287)
                 .setDescription(`🏆 Nanalo ng **${item}**: <@${winner.id}>\n\n📋 **Listahan:**\n${pList.map((u, i) => `${i===winnerIdx?'👑':`[${i+1}]`} **${u.username}** ${i===winnerIdx?'👈':''}`).join('\n')}`)
-                .setThumbnail(winner.displayAvatarURL()); // Maliit na mukha ng winner sa gilid
+                .setThumbnail(winner.displayAvatarURL());
 
             if (img) {
-                embed.setImage(img); // Malaking clickable item image para mai-zoom pagkatapos ng spin
+                embed.setImage(img); 
             } else {
-                embed.setImage('attachment://wheel.png'); // Kung walang item pic, ipakita ang huling pwesto ng gulong
+                embed.setImage('attachment://wheel.png'); 
             }
 
             const finalMsg = await interaction.editReply({
@@ -141,6 +140,8 @@ export default {
             rerollCollector.on('collect', async (ri) => {
                 if (ri.customId === REROLL_ID) {
                     if (ri.user.id !== hostId) return ri.reply({ ephemeral: true, content: "Host lang pwede!" });
+                    
+                    // Ginawang instant update bago tawagin ang mabigat na function
                     await ri.deferUpdate();
                     rerollCollector.stop();
                     await runSpin(pList);
@@ -152,9 +153,10 @@ export default {
             if (i.customId === ENTER_ID) {
                 if ([...participants].some(u => u.id === i.user.id)) return i.reply({ ephemeral: true, content: "Kasali ka na!" });
                 participants.add(i.user);
+                
                 await i.deferUpdate();
                 
-                const updateEmbed = EmbedBuilder.from(interaction.embeds[0]);
+                const updateEmbed = EmbedBuilder.from(msg.embeds[0]);
                 await interaction.editReply({ 
                     embeds: [updateEmbed],
                     files: [new AttachmentBuilder(await generateWheelImage([...participants], 0), { name: 'wheel.png' })],
@@ -163,6 +165,7 @@ export default {
             } else if (i.customId === START_ID) {
                 if (i.user.id !== hostId) return i.reply({ ephemeral: true, content: "Host lang pwede!" });
                 if (participants.size === 0) return i.reply({ ephemeral: true, content: "Kailangan ng kahit isang kasali para masimulan!" });
+                
                 await i.deferUpdate(); 
                 collector.stop();
                 await runSpin([...participants]);
