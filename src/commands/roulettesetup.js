@@ -86,7 +86,7 @@ export default {
         let msg = await interaction.reply({
             embeds: [initialEmbed],
             files: [new AttachmentBuilder(await generateWheelImage([], 0), { name: 'wheel.png' })],
-            components: [getRow()], fetchReply: true
+            components: [getRow()], withResponse: true
         });
 
         const collector = msg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 600000 });
