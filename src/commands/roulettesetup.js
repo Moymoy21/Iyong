@@ -15,7 +15,7 @@ function shuffleArray(array) {
 export default {
     data: {
         name: 'roulettesetup',
-        description: 'Magsimula ng isang Event Roulette na may mabilis na list shuffling text effect!',
+        description: 'Magsimula ng isang Event Roulette gamit ang iyong custom template link!',
         toJSON() {
             return { name: this.name, description: this.description };
         }
@@ -24,6 +24,8 @@ export default {
     async execute(interaction) {
         try {
             const hostId = interaction.user.id;
+            
+            // Patas na laban: Hindi awtomatikong kasali ang Host sa listahan
             const participantsSet = new Set();
 
             const JOIN_BUTTON_ID = "roulette_join_btn";
@@ -129,7 +131,7 @@ export default {
                 // 3. Pagpili ng Winner
                 const winner = participants[Math.floor(Math.random() * participants.length)];
                 
-                // Gagamitin natin ang custom blank template page mo at idudugtong ang mga pangalan ng sumali!
+                // Pagdugtong ng mga pangalan ng sumali sa iyong custom link
                 const encodedNames = participants.map(u => encodeURIComponent(u.username)).join(',');
                 const wheelBaseUrl = `https://wheelofnames.com/yvy-ukr?names=${encodedNames}`;
 
@@ -139,7 +141,7 @@ export default {
                     .map((user, index) => `${index === 0 ? '👑' : `\`[ ${index + 1} ]\``} **${user.username}** ${index === 0 ? '👈 WINNER!' : ''}`)
                     .join("\n");
 
-                // 4. Final Winner Embed
+                // 4. Final Winner Embed (MALINIS NA AT WALA NANG TYPO!)
                 const winnerEmbed = new EmbedBuilder()
                     .setTitle("🎉 ROULETTE WINNER CHOSEN! 🎉")
                     .setDescription(
@@ -147,7 +149,6 @@ export default {
                         `📋 **Huling Resulta ng Listahan:**\n${finalRealListText}\n\n` +
                         `🔗 **Gusto niyo bang makita ang mga pangalan niyo live sa gulong niyo?**\n👉 [I-click ang link para sa Wheel of Names niyo!](${wheelBaseUrl})`
                     )
-                    .setColor(0x57F2 green)
                     .setColor(0x57F287)
                     .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
                     .setFooter({ text: "Visual Roulette Completed! | wheelofnames.com" });
