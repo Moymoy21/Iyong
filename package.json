@@ -1,3 +1,5 @@
+
+
 {
   "name": "iyong-bot-fresh",
   "version": "1.0.0",
@@ -10,7 +12,6 @@
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "@napi-rs/canvas": "^0.1.44",
-    "gif-encoder-2": "^2.0.0"
+    "@napi-rs/canvas": "^0.1.44"
   }
 }
