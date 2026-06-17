@@ -1,7 +1,6 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder, SlashCommandBuilder } from 'discord.js';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
-// Helper function para sa delay (imported at defined na dito)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function generateWheelImage(participantsList, currentRotation = 0) {
@@ -46,6 +45,7 @@ async function generateWheelImage(participantsList, currentRotation = 0) {
         }
     }
 
+    // Pointer (Red Arrow)
     ctx.fillStyle = '#ff0000';
     ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
     return canvas.toBuffer('image/png');
@@ -86,7 +86,7 @@ export default {
 
         collector.on('collect', async (i) => {
             if (i.customId === ENTER_ID) {
-                if ([...participants].some(u => u.id === i.user.id)) return i.reply({ ephemeral: true, content: "Kasali ka ka na!" });
+                if ([...participants].some(u => u.id === i.user.id)) return i.reply({ ephemeral: true, content: "Kasali ka na!" });
                 participants.add(i.user);
                 await i.deferUpdate();
                 await updateMessage();
@@ -96,21 +96,34 @@ export default {
                 
                 collector.stop();
                 const pList = [...participants];
+                const winnerIdx = Math.floor(Math.random() * pList.length);
+                const winner = pList[winnerIdx];
 
-                // --- SPINNING ANIMATION ---
-                for (let j = 0; j < 15; j++) {
-                    const rotation = j * 0.8;
-                    const buffer = await generateWheelImage(pList, rotation);
+                const sliceAngle = (2 * Math.PI) / pList.length;
+                const targetRotation = (winnerIdx * -sliceAngle) + (Math.PI * 0.5) + (5 * 2 * Math.PI);
+
+                // --- Easing Animation ---
+                const totalFrames = 20;
+                for (let j = 0; j <= totalFrames; j++) {
+                    const progress = j / totalFrames;
+                    const easeOut = 1 - Math.pow(1 - progress, 3);
+                    const currentRotation = targetRotation * easeOut;
+
+                    const buffer = await generateWheelImage(pList, currentRotation);
                     const attachment = new AttachmentBuilder(buffer, { name: `spin_${j}.png` });
+                    
                     await interaction.editReply({
-                        embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setDescription("Ang gulong ay umiikot na...").setImage(`attachment://spin_${j}.png`).setColor(0xFEE75C)],
+                        embeds: [new EmbedBuilder()
+                            .setTitle("🎰 ROLLING...")
+                            .setDescription(`Item: **${item}**\n\n**Ang gulong ay tumitigil na...**`)
+                            .setImage(`attachment://spin_${j}.png`)
+                            .setColor(0xFEE75C)],
                         files: [attachment],
                         components: []
                     });
-                    await sleep(400); // 400ms delay kada frame
+                    await sleep(150);
                 }
 
-                const winner = pList[Math.floor(Math.random() * pList.length)];
                 await updateMessage(true, winner);
             }
         });
