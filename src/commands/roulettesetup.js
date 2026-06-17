@@ -1,7 +1,44 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder, SlashCommandBuilder } from 'discord.js';
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
+import fs from 'fs';
+import path from 'path';
+import https from 'https';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 🛠️ FONT LOADER PARA SA RAILWAY: Nag-o-auto download ng font file para may magamit si @napi-rs/canvas
+const fontPath = path.join(process.cwd(), 'Roboto-Bold.ttf');
+let isFontLoaded = false;
+
+function ensureFontExists() {
+    return new Promise((resolve) => {
+        if (isFontLoaded || fs.existsSync(fontPath)) {
+            if (!isFontLoaded) {
+                GlobalFonts.registerFromPath(fontPath, 'CustomRailwayFont');
+                isFontLoaded = true;
+            }
+            return resolve(true);
+        }
+
+        // Mag-download ng selyadong Roboto Bold font mula sa opisyal na Google Fonts CDN
+        const fontUrl = 'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/Roboto-Bold.ttf';
+        const file = fs.createWriteStream(fontPath);
+
+        https.get(fontUrl, (response) => {
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close();
+                GlobalFonts.registerFromPath(fontPath, 'CustomRailwayFont');
+                isFontLoaded = true;
+                console.log('✅ Font downloaded and registered successfully for Railway!');
+                resolve(true);
+            });
+        }).on('error', (err) => {
+            console.error('Error downloading font:', err);
+            resolve(false);
+        });
+    });
+}
 
 function shuffleArray(array) {
     const shuffled = [...array];
@@ -12,10 +49,13 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 🔥 SEGINURADONG CANVAS RENDERER: SENTRADO ANG TEXT KAYA LITAW ANG PANGALAN KAHIT SAAN
+// 🔥 CANVAS ENGINE: SENTRADO AT MAY REHISTRADONG FONT NA KAYA GAGANA NA ANG TEXT
 async function generateWheelImage(usernameList, currentTimer) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
+
+    // Siguraduhing load ang font bago mag-draw
+    await ensureFontExists();
 
     try {
         const wheelImageUrl = "https://cdn.discordapp.com/attachments/1065770284692558005/1516606427236401184/wheel.webp?ex=6a33414d&is=6a31efcd&hm=c95f39f936a6e07c00b590182ad17c41e059aa5a3d294912542307bc2a89ed1f&";
@@ -26,7 +66,7 @@ async function generateWheelImage(usernameList, currentTimer) {
         const activeNames = (usernameList || []).map(name => String(name).trim()).filter(name => name.length > 0);
 
         if (activeNames.length === 0) {
-            // Unang labas: Solid Blurple para tago ang dumi ng lumang asset
+            // Unang labas: Solid Blurple para malinis tingnan
             ctx.fillStyle = '#5865F2'; 
             ctx.beginPath();
             ctx.arc(200, 200, 185, 0, 2 * Math.PI);
@@ -34,14 +74,14 @@ async function generateWheelImage(usernameList, currentTimer) {
 
             ctx.save();
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 18px sans-serif';
+            // GAGANA NA ITO: Dahil rehistrado na ang 'CustomRailwayFont' sa system
+            ctx.font = 'bold 18px CustomRailwayFont';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText("Waiting for Players... 🎟️", 200, 200);
             ctx.restore();
         } 
         else {
-            // Kung 1 player lang, hahatiin sa dalawa para may magandang slices agad
             const displayNames = activeNames.length === 1 ? [activeNames[0], "Waiting... ⏳"] : activeNames;
 
             const numSlices = displayNames.length;
@@ -55,7 +95,7 @@ async function generateWheelImage(usernameList, currentTimer) {
                 const endAngle = startAngle + anglePerSlice;
                 const middleAngle = startAngle + (anglePerSlice / 2);
 
-                // 1. Iguhit ang slice panel block
+                // Iguhit ang makulay na slice panel
                 ctx.fillStyle = sliceColors[index % sliceColors.length];
                 ctx.beginPath();
                 ctx.moveTo(200, 200);
@@ -63,36 +103,35 @@ async function generateWheelImage(usernameList, currentTimer) {
                 ctx.lineTo(200, 200);
                 ctx.fill();
 
-                // Puting guhit/border ng bawat slice
+                // Puting hati/border lines
                 ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // 2. BAGONG TEXT ENGINE: Sentrado ang sulat sa katawan ng slice para hindi matakpan o mawala
+                // Isulat ang pangalan gamit ang na-download na font
                 ctx.save();
                 ctx.translate(200, 200);
-                // Idagdag ang Math.PI para bumaligtad ang text patungo sa tamang anggulo ng paningin kung kailangan
                 ctx.rotate(middleAngle);
                 
                 ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 14px sans-serif'; 
-                ctx.textAlign = 'center'; // Sentrado para ligtas
+                ctx.font = 'bold 15px CustomRailwayFont'; 
+                ctx.textAlign = 'center'; 
                 ctx.textBaseline = 'middle';
                 
-                // Ilalagay ang text sa radius 110 (gitnang-gitna ng kulay)
+                // Kunin ang unang 10 characters ng discord username niyo
                 const cleanName = name.substring(0, 10);
                 ctx.fillText(cleanName, 110, 0); 
                 ctx.restore();
             });
 
-            // Re-draw ang gitnang puting bilog
+            // Gitnang puting cover circle
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
             ctx.arc(200, 200, 38, 0, 2 * Math.PI);
             ctx.fill();
         }
 
-        // 3. Pulang Arrow Pointer indicator sa gilid
+        // Kanang pulang arrow indicator
         ctx.fillStyle = '#ff0000';
         ctx.beginPath();
         ctx.moveTo(375, 200);
@@ -111,7 +150,7 @@ async function generateWheelImage(usernameList, currentTimer) {
 export default {
     data: new SlashCommandBuilder()
         .setName('roulettesetup')
-        .setDescription('Magsimula ng isang Event Roulette Giveaway na may selyadong text overlay!')
+        .setDescription('Magsimula ng isang Event Roulette Giveaway!')
         .addStringOption(option => 
             option.setName('item')
                 .setDescription('Ano ang ipamimigay mong item?')
@@ -162,7 +201,7 @@ export default {
                 )
                 .setImage('attachment://rendered-wheel.png')
                 .setColor(0x5865F2)
-                .setFooter({ text: "Iyong Bot Official | Absolute Text Overlay System" });
+                .setFooter({ text: "Iyong Bot Official | Auto-Font Injection System" });
 
             const message = await interaction.reply({ 
                 embeds: [setupEmbed], 
@@ -178,13 +217,13 @@ export default {
 
             collector.on('collect', async (btnInteraction) => {
                 if (btnInteraction.customId === ENTER_BUTTON_ID) {
-                    if (participantsSet.has(btnInteraction.user)) {
+                    if (Array.from(participantsSet).some(u => u.id === btnInteraction.user.id)) {
                         return await btnInteraction.reply({ content: "❌ Kasali ka na sa laro!", ephemeral: true });
                     }
                     participantsSet.add(btnInteraction.user);
                     await btnInteraction.deferUpdate();
                     
-                    // Kuhanin ang saktong string value ng username
+                    // Kinukuha ang saktong discord username ng pumindot
                     const currentNames = Array.from(participantsSet).map(u => u.username);
                     const updatedBuffer = await generateWheelImage(currentNames, 0);
                     const updatedAttachment = new AttachmentBuilder(updatedBuffer, { name: 'rendered-wheel.png' });
