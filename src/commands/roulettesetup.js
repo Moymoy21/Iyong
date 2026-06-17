@@ -21,15 +21,22 @@ async function generateWheelImage(participantsList, currentRotation = 0) {
         const sliceColors = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3498DB', '#9B59B6', '#1ABC9C'];
 
         activeUsers.forEach((user, index) => {
-            const startAngle = index * anglePerSlice + currentRotation;
+            const startAngle = (index * anglePerSlice) + currentRotation;
             const endAngle = startAngle + anglePerSlice;
             ctx.fillStyle = sliceColors[index % sliceColors.length];
-            ctx.beginPath(); ctx.moveTo(200, 200); ctx.arc(200, 200, 185, startAngle, endAngle); ctx.lineTo(200, 200); ctx.fill();
-            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.beginPath(); 
+            ctx.moveTo(200, 200); 
+            ctx.arc(200, 200, 185, startAngle, endAngle); 
+            ctx.lineTo(200, 200); 
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff'; 
+            ctx.lineWidth = 2; 
+            ctx.stroke();
         });
 
         for (let index = 0; index < activeUsers.length; index++) {
-            const middleAngle = (index * anglePerSlice + currentRotation) + (anglePerSlice / 2);
+            const startAngle = (index * anglePerSlice) + currentRotation;
+            const middleAngle = startAngle + (anglePerSlice / 2);
             const avatarUrl = activeUsers[index].displayAvatarURL({ extension: 'png', size: 64 });
             try {
                 const avatarImg = await loadImage(avatarUrl);
@@ -45,7 +52,6 @@ async function generateWheelImage(participantsList, currentRotation = 0) {
         }
     }
 
-    // Pointer (Red Arrow)
     ctx.fillStyle = '#ff0000';
     ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
     return canvas.toBuffer('image/png');
@@ -100,10 +106,10 @@ export default {
                 const winner = pList[winnerIdx];
 
                 const sliceAngle = (2 * Math.PI) / pList.length;
-                const targetRotation = (winnerIdx * -sliceAngle) + (Math.PI * 0.5) + (5 * 2 * Math.PI);
+                const sliceCenter = (winnerIdx * sliceAngle) + (sliceAngle / 2);
+                const targetRotation = -sliceCenter + (5 * 2 * Math.PI); 
 
-                // --- Easing Animation ---
-                const totalFrames = 20;
+                const totalFrames = 25;
                 for (let j = 0; j <= totalFrames; j++) {
                     const progress = j / totalFrames;
                     const easeOut = 1 - Math.pow(1 - progress, 3);
@@ -121,7 +127,7 @@ export default {
                         files: [attachment],
                         components: []
                     });
-                    await sleep(150);
+                    await sleep(100);
                 }
 
                 await updateMessage(true, winner);
