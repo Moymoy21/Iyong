@@ -55,11 +55,29 @@ export default {
         async function updateMessage(isFinal = false, winner = null, finalRotation = 0) {
             const buffer = await generateWheelImage([...participants], finalRotation);
             const attachment = new AttachmentBuilder(buffer, { name: `wheel_${Date.now()}.png` });
+            
             const embed = new EmbedBuilder()
-                .setTitle(isFinal ? "🎉 WINNER!" : "🎉 GIVEAWAY!")
-                .setDescription(isFinal ? `🏆 Nanalo ng **${item}**: <@${winner.id}>` : `Host: <@${interaction.user.id}>\nClick "Enter" para sumali!`)
-                .setImage(`attachment://${attachment.name}`).setColor(isFinal ? 0x57F287 : 0x5865F2);
-            await interaction.editReply({ embeds: [embed], files: [attachment], components: isFinal ? [] : [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId(START_ID).setLabel("Start").setStyle(ButtonStyle.Success))] });
+                .setTitle(isFinal ? "🎉 WINNER!" : "🎉 GIVEAWAY CREATED")
+                .setColor(isFinal ? 0x57F287 : 0x5865F2)
+                .setImage(`attachment://${attachment.name}`)
+                // Dito natin inilalagay ang layout na gusto mo
+                .addFields(
+                    { name: 'Host', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: 'Participants', value: `${participants.size}`, inline: true },
+                    { name: 'Item', value: `# ${item}`, inline: false } // Ang # ay nagbibigay ng highlight/big text
+                )
+                .setDescription(isFinal 
+                    ? `🏆 Nanalo ng **${item}**: <@${winner.id}>` 
+                    : `**Click "Enter" para sumali!**`);
+
+            const components = isFinal ? [] : [
+                new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId(START_ID).setLabel("Start").setStyle(ButtonStyle.Success)
+                )
+            ];
+
+            await interaction.editReply({ embeds: [embed], files: [attachment], components: components });
         }
 
         await updateMessage();
