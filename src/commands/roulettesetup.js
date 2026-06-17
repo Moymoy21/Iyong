@@ -12,7 +12,7 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 🔥 NAAYOS NA CANVAS RENDERER: GUMAGANA KAHIT SA LINUX/RAILWAY SERVER
+// 🔥 PINAGANDANG CANVAS RENDERER: TINAKPAN NA AGAD ANG LUMANG IMAGE MULA SA PANIMULA
 async function generateWheelImage(usernameList, currentTimer) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
@@ -21,67 +21,85 @@ async function generateWheelImage(usernameList, currentTimer) {
         const wheelImageUrl = "https://cdn.discordapp.com/attachments/1065770284692558005/1516606427236401184/wheel.webp?ex=6a33414d&is=6a31efcd&hm=c95f39f936a6e07c00b590182ad17c41e059aa5a3d294912542307bc2a89ed1f&";
         const baseWheel = await loadImage(wheelImageUrl);
         
+        // I-draw ang base wheel para makuha ang anino at bilog na border
         ctx.drawImage(baseWheel, 0, 0, 400, 400);
 
-        // Siguraduhing may laman ang listahan bago mag-slice
-        if (usernameList && usernameList.length > 0) {
-            const numSlices = usernameList.length;
+        const activeNames = (usernameList || []).map(name => String(name).trim()).filter(name => name.length > 0);
+
+        // 1. KUNG WALANG SUMALI PA (INITIAL SETUP PANEL)
+        // Tatakpan agad ng malinis na solid Blurple color para burado ang lumang text na "iyong"
+        if (activeNames.length === 0) {
+            ctx.fillStyle = '#5865F2'; // Discord Blurple
+            ctx.beginPath();
+            ctx.arc(200, 200, 185, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Maglalagay ng malinis na text sa pinakagitna habang naghihintay
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("Waiting for Players... 🎟️", 200, 200);
+            ctx.restore();
+        } 
+        // 2. KUNG MAY MGA KASALI NA (DUMATING NA ANG MGA SLICES)
+        else {
+            // Kung 1 player pa lang, gumawa ng dummy slice para may hati ang gulong
+            const displayNames = activeNames.length === 1 ? [activeNames[0], "Waiting... ⏳"] : activeNames;
+
+            const numSlices = displayNames.length;
             const anglePerSlice = (2 * Math.PI) / numSlices;
             
-            // Paikutin ang posisyon base sa timer countdown para gumalaw ang mga pangalan
-            const rotationOffset = currentTimer * 0.7; 
-
-            // Kulay para sa bawat slice para maging kaakit-akit tingnan (Selyadong Discord Palette)
+            const rotationOffset = currentTimer * 0.8; 
             const sliceColors = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3498DB', '#9B59B6', '#1ABC9C'];
 
-            usernameList.forEach((username, index) => {
+            displayNames.forEach((name, index) => {
                 const startAngle = index * anglePerSlice + rotationOffset;
                 const endAngle = startAngle + anglePerSlice;
                 const middleAngle = startAngle + (anglePerSlice / 2);
 
-                // 1. I-draw ang pizza slice block para takpan ang lumang background text
+                // Iguhit ang makulay na slice panel na nakatakip sa background
                 ctx.fillStyle = sliceColors[index % sliceColors.length];
                 ctx.beginPath();
                 ctx.moveTo(200, 200);
-                ctx.arc(200, 200, 182, startAngle, endAngle); // Bahagyang nilakihan para takpan ang gilid
+                ctx.arc(200, 200, 185, startAngle, endAngle);
                 ctx.lineTo(200, 200);
                 ctx.fill();
 
-                // Itim o puting border para sa bawat hiwa ng gulong
+                // Puting border line sa bawat pagitan
                 ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.5;
+                ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // 2. Isulat ang pangalan sa ibabaw ng slice
+                // Isulat ang pangalan ng player sa loob ng slice nito
                 ctx.save();
                 ctx.translate(200, 200);
                 ctx.rotate(middleAngle);
                 
                 ctx.fillStyle = '#ffffff';
-                // Ginamit ang 'sans-serif' para suportado ng kahit anong operating system ng Railway
-                ctx.font = 'bold 15px sans-serif'; 
+                ctx.font = 'bold 16px sans-serif'; 
                 ctx.textAlign = 'right';
                 ctx.textBaseline = 'middle';
                 
-                // Kunin lang ang unang 9 characters para laging kasya sa space
-                const safeName = String(username).substring(0, 9);
-                ctx.fillText(safeName, 165, 0);
+                const cleanName = name.substring(0, 8);
+                ctx.fillText(cleanName, 130, 0); 
                 ctx.restore();
             });
 
-            // Re-draw ang gitnang puting bilog para malinis tingnan ang pinagmulan ng mga linya
+            // Re-draw ang gitnang puting bilog para maging malinis ang dulo ng mga linya
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
-            ctx.arc(200, 200, 36, 0, 2 * Math.PI);
+            ctx.arc(200, 200, 38, 0, 2 * Math.PI);
             ctx.fill();
         }
 
-        // 3. Arrow Indicator sa kanang bahagi
+        // 3. Pulang Arrow Pointer indicator sa kanang bahagi
         ctx.fillStyle = '#ff0000';
         ctx.beginPath();
-        ctx.moveTo(380, 200);
-        ctx.lineTo(400, 182);
-        ctx.lineTo(400, 218);
+        ctx.moveTo(375, 200);
+        ctx.lineTo(400, 180);
+        ctx.lineTo(400, 220);
         ctx.closePath();
         ctx.fill();
 
@@ -113,7 +131,6 @@ export default {
             const itemToGiveaway = interaction.options.getString('item');
             const spinDuration = interaction.options.getInteger('duration') || 10; 
             
-            // Dito natin ise-save ang mga Discord User objects
             const participantsSet = new Set();
 
             const ENTER_BUTTON_ID = "roulette_enter_btn";
@@ -133,7 +150,7 @@ export default {
                 );
             };
 
-            // Unang load: Blangkong larawan pa
+            // Unang labas: Malinis na agad at may nakatakip na solid color background
             const initialBuffer = await generateWheelImage([], 0);
             const initialAttachment = new AttachmentBuilder(initialBuffer, { name: 'rendered-wheel.png' });
 
@@ -148,7 +165,7 @@ export default {
                 )
                 .setImage('attachment://rendered-wheel.png')
                 .setColor(0x5865F2)
-                .setFooter({ text: "Iyong Bot Official | Dynamic Render System" });
+                .setFooter({ text: "Iyong Bot Official | Anti-Glitched Canvas System" });
 
             const message = await interaction.reply({ 
                 embeds: [setupEmbed], 
@@ -170,7 +187,6 @@ export default {
                     participantsSet.add(btnInteraction.user);
                     await btnInteraction.deferUpdate();
                     
-                    // Kukunin natin ang mga usernames para sa pag-render ng canvas
                     const currentNames = Array.from(participantsSet).map(u => u.username);
                     const updatedBuffer = await generateWheelImage(currentNames, 0);
                     const updatedAttachment = new AttachmentBuilder(updatedBuffer, { name: 'rendered-wheel.png' });
@@ -216,7 +232,6 @@ export default {
                         .map((user, index) => `\`[ ${index + 1} ]\` **${user.username}**`)
                         .join("\n");
 
-                    // I-shuffle din ang mga pangalan sa visual wheel bawat segundo
                     const rollingNames = randomizedList.map(u => u.username);
                     const rollingBuffer = await generateWheelImage(rollingNames, i);
                     const rollingAttachment = new AttachmentBuilder(rollingBuffer, { name: 'rendered-wheel.png' });
