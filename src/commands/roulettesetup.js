@@ -56,15 +56,17 @@ export default {
         async function updateMessage(isFinal = false) {
             const buffer = await generateWheelImage([...participants], finalRotation);
             const attachment = new AttachmentBuilder(buffer, { name: `w.png` });
-            const participantNames = [...participants].map(u => u.username).join('\n') || "Wala pa.";
+            
+            const pList = [...participants];
+            const participantList = pList.length > 0 ? pList.map(u => `• ${u.username}`).join('\n') : "Wala pa.";
             
             const embed = new EmbedBuilder()
                 .setTitle(isFinal ? "Giveaway Winner" : "🎉 GIVEAWAY CREATED")
                 .setColor(isFinal ? 0x57F287 : 0x5865F2)
                 .setImage(`attachment://w.png`)
                 .setDescription(isFinal 
-                    ? `Giveaway Winner\n🏆 Winner: <@${winner.id}>\nItem: **${item}**` 
-                    : `**Host:** <@${interaction.user.id}>\n# ${item}\n\n**Participants (${participants.size})**\n${participantNames}`);
+                    ? `Giveaway Winner\n🏆 Winner: <@${winner.id}>\n# ${item}\n\n**Participants:**\n${participantList}` 
+                    : `**Host:** <@${interaction.user.id}>\n# ${item}\n\n**Participants (${participants.size})**\n${participantList}`);
 
             const components = [];
             if (!isFinal) {
@@ -77,7 +79,7 @@ export default {
                     new ButtonBuilder().setCustomId(REROLL_ID).setLabel("Reroll").setStyle(ButtonStyle.Secondary)
                 ));
             }
-            await interaction.editReply({ embeds: [embed], files: [attachment], components: components });
+            await interaction.editReply({ embeds: [embed], files: [attachment], components: components }).catch(console.error);
         }
 
         await updateMessage();
@@ -86,11 +88,17 @@ export default {
             if (i.customId === ENTER_ID) {
                 participants.add(i.user); await i.deferUpdate(); await updateMessage();
             } else if (i.customId === START_ID || i.customId === REROLL_ID) {
-                if (i.user.id !== interaction.user.id) return i.reply({ephemeral: true, content: "Host only!"});
-                if (i.customId === REROLL_ID && (Date.now() - lastWinTime > 25 * 60000)) return i.reply({ephemeral: true, content: "Giveaway ended!"});
+                if (i.user.id !== interaction.user.id) return i.reply({ephemeral: true, content: "Host lang ang pwedeng mag-start!"});
+                
+                // Reroll time limit check
+                if (i.customId === REROLL_ID && lastWinTime && (Date.now() - lastWinTime > 25 * 60000)) {
+                    return i.reply({ephemeral: true, content: "Giveaway ended!"});
+                }
                 
                 const pList = [...participants];
                 if (pList.length === 0) return i.reply({ephemeral: true, content: "Walang participants!"});
+
+                await i.deferUpdate(); // Iwas "Interaction failed"
 
                 const winnerIdx = Math.floor(Math.random() * pList.length);
                 winner = pList[winnerIdx];
@@ -101,9 +109,9 @@ export default {
                     finalRotation = targetRotation * (1 - Math.pow(1 - (j / 10), 3));
                     const buffer = await generateWheelImage(pList, finalRotation);
                     await interaction.editReply({ 
-                        embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setDescription("Ang gulong ay umiikot na...").setImage('attachment://w.png')],
+                        embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setImage('attachment://w.png')],
                         files: [new AttachmentBuilder(buffer, { name: 'w.png' })],
-                        components: [] // Dito nawawala ang buttons habang nagro-roll
+                        components: [] 
                     });
                     await sleep(1000);
                 }
