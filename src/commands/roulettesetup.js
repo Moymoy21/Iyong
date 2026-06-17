@@ -51,7 +51,7 @@ async function drawWheelFrame(ctx, participantsList, currentRotation) {
     }
 }
 
-// Function para gumawa ng standalone PNG block
+// Function para gumawa ng standalone PNG block para sa registration view
 async function generateWheelImage(participantsList, currentRotation) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
@@ -59,25 +59,25 @@ async function generateWheelImage(participantsList, currentRotation) {
     return canvas.toBuffer('image/png');
 }
 
-// BAGONG FUNCTION: Gumagawa ng animated GIF file ng pag-roll ng roleta
+// Gumagawa ng animated GIF file ng pag-roll ng roleta
 async function generateAnimatedWheelGif(pList, winnerIdx) {
     const encoder = new GIFEncoder(400, 400);
     encoder.start();
-    encoder.setRepeat(0);   // 0 = Loop infinitely
-    encoder.setDelay(80);   // Bilis ng bawat frame (millisecond)
-    encoder.setQuality(10); // Image compression tier
+    encoder.setRepeat(0);   // Loop configuration
+    encoder.setDelay(80);   // Frame speed tick (ms)
+    encoder.setQuality(10); // Code image quality process ratio
 
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
 
     const sliceAngle = (2 * Math.PI) / pList.length;
-    // Pinuwersa ang huling pwesto na tumigil nang sakto sa nanalong index sector
+    // Pinuwersa ang huling rotation value na tumigil sa nanalong index slot sa may arrow tracker
     const finalRot = (winnerIdx * -sliceAngle) + (Math.PI * 2);
     const totalFrames = 22; 
 
     for (let i = 0; i <= totalFrames; i++) {
         const t = i / totalFrames;
-        // Cubic Ease Out: Mabilis na ikot sa simula, swabe at dahan-dahang hihinto sa dulo
+        // Cubic Ease Out formula para bumagal ang ikot sa huli
         const easeOutCubic = 1 - Math.pow(1 - t, 3);
         const currentRot = (finalRot * easeOutCubic) + (Math.PI * 0.5);
         
@@ -86,7 +86,7 @@ async function generateAnimatedWheelGif(pList, winnerIdx) {
         encoder.addFrame(ctx);
     }
 
-    // Magdagdag ng kaunting duplicate frames sa dulo para mag-pause ang roleta sa winner bago mag-loop ulit
+    // Freeze delay buffer para hindi biglang mag-loop back ang animation sa simula
     for (let i = 0; i < 15; i++) {
         encoder.addFrame(ctx);
     }
@@ -125,7 +125,7 @@ export default {
         async function runSpin(pList) {
             if (pList.length === 0) return;
 
-            // 1. Magpakita agad ng loading embed para malaman ng host na ginagawa na ng bot ang GIF block
+            // Loading layout screen para may temporary status update bago lumabas ang GIF rendering stream
             const loadingEmbed = new EmbedBuilder()
                 .setTitle("🎰 GENERATING ROULETTE...")
                 .setDescription(`Item: **${item}**\n\nInihahanda ang mahiwagang gulong para sa ${pList.length} na kasali...`)
@@ -139,16 +139,14 @@ export default {
                 files: []
             });
 
-            // 2. Kalkulahin ang resulta at buuin ang GIF buffer array
             const winnerIdx = Math.floor(Math.random() * pList.length);
             const gifBuffer = await generateAnimatedWheelGif(pList, winnerIdx);
             const winner = pList[winnerIdx];
 
-            // 3. Ipadala ang gumagalaw na GIF embed nang sabay [NANG WALANG BLINKING!]
             const embed = new EmbedBuilder()
                 .setTitle("🎉 WINNER! 🎉").setColor(0x57F287)
                 .setDescription(`🏆 Nanalo ng **${item}**: <@${winner.id}>\n\n📋 **Listahan:**\n${pList.map((u, i) => `${i===winnerIdx?'👑':`[${i+1}]`} **${u.username}** ${i===winnerIdx?'👈':''}`).join('\n')}`)
-                .setImage('attachment://wheel.gif'); // GIF File na ngayon ang naka-display!
+                .setImage('attachment://wheel.gif'); // Naka-link na ngayon sa animated buffer stream
             
             if(img) embed.setThumbnail(img);
             else embed.setThumbnail(winner.displayAvatarURL());
@@ -160,7 +158,6 @@ export default {
                 components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(REROLL_ID).setLabel("Reroll 🔄").setStyle(ButtonStyle.Danger))]
             });
 
-            // 4. Ligtas na Reroll Component Collector Setup
             const rerollCollector = finalMsg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 300000 });
             
             rerollCollector.on('collect', async (ri) => {
@@ -189,4 +186,8 @@ export default {
                 await i.deferUpdate(); 
                 collector.stop();
                 await runSpin([...participants]);
-                
+            }
+        });
+    }
+};
+                                                                                                                                           
