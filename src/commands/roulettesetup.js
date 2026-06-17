@@ -55,15 +55,15 @@ export default {
 
         async function updateMessage(isFinal = false) {
             const buffer = await generateWheelImage([...participants], finalRotation);
-            const attachment = new AttachmentBuilder(buffer, { name: `wheel.png` });
+            const attachment = new AttachmentBuilder(buffer, { name: `w.png` });
             const participantNames = [...participants].map(u => u.username).join('\n') || "Wala pa.";
             
             const embed = new EmbedBuilder()
                 .setTitle(isFinal ? "Giveaway Winner" : "🎉 GIVEAWAY CREATED")
                 .setColor(isFinal ? 0x57F287 : 0x5865F2)
-                .setImage(`attachment://wheel.png`)
+                .setImage(`attachment://w.png`)
                 .setDescription(isFinal 
-                    ? `🏆 Winner: <@${winner.id}>\nItem: **${item}**` 
+                    ? `Giveaway Winner\n🏆 Winner: <@${winner.id}>\nItem: **${item}**` 
                     : `**Host:** <@${interaction.user.id}>\n# ${item}\n\n**Participants (${participants.size})**\n${participantNames}`);
 
             const components = [];
@@ -101,8 +101,9 @@ export default {
                     finalRotation = targetRotation * (1 - Math.pow(1 - (j / 10), 3));
                     const buffer = await generateWheelImage(pList, finalRotation);
                     await interaction.editReply({ 
-                        embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setImage('attachment://w.png')],
-                        files: [new AttachmentBuilder(buffer, { name: 'w.png' })]
+                        embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setDescription("Ang gulong ay umiikot na...").setImage('attachment://w.png')],
+                        files: [new AttachmentBuilder(buffer, { name: 'w.png' })],
+                        components: [] // Dito nawawala ang buttons habang nagro-roll
                     });
                     await sleep(1000);
                 }
