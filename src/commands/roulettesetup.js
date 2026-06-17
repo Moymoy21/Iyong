@@ -50,7 +50,10 @@ async function generateWheelImage(participantsList, currentRotation) {
 
         ctx.fillStyle = '#ff0000'; ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
         return canvas.toBuffer('image/png');
-    } catch (err) { return null; }
+    } catch (err) { 
+        console.error("Canvas error caught:", err);
+        return null; 
+    }
 }
 
 export default {
@@ -61,6 +64,9 @@ export default {
         .addAttachmentOption(o => o.setName('image').setDescription('Screenshot ng item (Optional)')),
 
     async execute(interaction) {
+        // SEGURIDAD: Instant response para hindi mag-timeout ang Discord application
+        await interaction.deferReply();
+
         const hostId = interaction.user.id;
         const item = interaction.options.getString('item');
         const img = interaction.options.getAttachment('image')?.url || null;
@@ -79,14 +85,22 @@ export default {
 
         if (img) {
             initialEmbed.setImage(img); 
-        } else {
-            initialEmbed.setImage('attachment://wheel.png');
         }
 
-        let msg = await interaction.reply({
+        // Ligtas na pagbuo ng panimulang imahe
+        const initialBuffer = await generateWheelImage([], 0);
+        const filesPayload = [];
+
+        if (initialBuffer) {
+            filesPayload.push(new AttachmentBuilder(initialBuffer, { name: 'wheel.png' }));
+            if (!img) initialEmbed.setImage('attachment://wheel.png');
+        }
+
+        let msg = await interaction.editReply({
             embeds: [initialEmbed],
-            files: [new AttachmentBuilder(await generateWheelImage([], 0), { name: 'wheel.png' })],
-            components: [getRow()], fetchReply: true
+            files: filesPayload,
+            components: [getRow()],
+            fetchReply: true
         });
 
         const collector = msg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 600000 });
@@ -96,21 +110,21 @@ export default {
 
             const countdownEmbed = new EmbedBuilder()
                 .setTitle("🎰 ROLLING THE WHEEL...")
-                .setDescription(`Item: **${item}**\n\n**Ang gulong ay umiikot na...**\nStatus: 🕒 Kinakalkula ang resulta...`)
+                .setDescription(`Item: **${item}**\n\n**Ang gulong ay umiikot na...**\nStatus: 🕒 Kinakalkula ang huling resulta...`)
                 .setColor(0xFEE75C);
                 
             if (img) countdownEmbed.setThumbnail(img);
 
             await interaction.editReply({
                 embeds: [countdownEmbed],
-                components: [] 
+                components: [],
+                files: [] // Inalis pansamantala ang lumang attachment para iwas conflict
             });
 
-            await sleep(2500); 
+            await sleep(2000); 
 
             const winnerIdx = Math.floor(Math.random() * pList.length);
             const sliceAngle = (2 * Math.PI) / pList.length;
-            
             const randomOffset = Math.random() * sliceAngle;
             const targetRotation = (winnerIdx * -sliceAngle) - randomOffset + (Math.PI * 0.5);
             
@@ -122,18 +136,17 @@ export default {
                 .setDescription(`🏆 Nanalo ng **${item}**: <@${winner.id}>\n\n📋 **Listahan:**\n${pList.map((u, i) => `${i===winnerIdx?'👑':`[${i+1}]`} **${u.username}** ${i===winnerIdx?'👈':''}`).join('\n')}`)
                 .setThumbnail(winner.displayAvatarURL());
 
-            if (img) {
-                embed.setImage(img); 
-            } else {
-                embed.setImage('attachment://wheel.png');
+            const finalFiles = [];
+            if (buf) {
+                finalFiles.push(new AttachmentBuilder(buf, { name: 'wheel.png' }));
+                if (!img) embed.setImage('attachment://wheel.png');
             }
-
-            const filesToSend = [new AttachmentBuilder(buf, { name: 'wheel.png' })];
+            if (img) embed.setImage(img); 
 
             const finalMsg = await interaction.editReply({
                 content: `Congratulations <@${winner.id}>!`,
                 embeds: [embed],
-                files: filesToSend,
+                files: finalFiles,
                 components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(REROLL_ID).setLabel("Reroll 🔄").setStyle(ButtonStyle.Danger))]
             });
 
@@ -155,14 +168,19 @@ export default {
                 participants.add(i.user);
                 await i.deferUpdate();
                 
-                // INAYOS: Ligtas na pag-reconstruct ng kasalukuyang embed mula sa unang posisyon ng array
-                const activeEmbed = msg.embeds && msg.embeds[0] 
-                    ? EmbedBuilder.from(msg.embeds[0]) 
-                    : initialEmbed;
+                const updateBuffer = await generateWheelImage([...participants], 0);
+                const enterFiles = [];
                 
+                if (updateBuffer) {
+                    enterFiles.push(new AttachmentBuilder(updateBuffer, { name: 'wheel.png' }));
+                }
+
+                // Inayos para hindi magka-conflict sa pagbasa ng embed structure
+                const freshEmbed = EmbedBuilder.from(initialEmbed);
+
                 await interaction.editReply({ 
-                    embeds: [activeEmbed],
-                    files: [new AttachmentBuilder(await generateWheelImage([...participants], 0), { name: 'wheel.png' })],
+                    embeds: [freshEmbed],
+                    files: enterFiles,
                     components: [getRow()] 
                 });
             } else if (i.customId === START_ID) {
