@@ -1,11 +1,21 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Function para guluhin o i-shuffle ang pagkakasunod-sunod ng mga pangalan sa listahan
+function shuffleArray(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
 
 export default {
     data: {
         name: 'roulettesetup',
-        description: 'Magsimula ng isang totoong visual Wheel of Names roulette gamit ang opisyal na API!',
+        description: 'Magsimula ng isang Event Roulette na may mabilis na list shuffling text effect!',
         toJSON() {
             return { name: this.name, description: this.description };
         }
@@ -14,10 +24,9 @@ export default {
     async execute(interaction) {
         try {
             const hostId = interaction.user.id;
-            const participantsSet = new Set();
             
-            // Awtomatikong kasali ang host sa simula
-            participantsSet.add(interaction.user);
+            // PATAS NA LABAN: Naka-blanko na ang Set sa simula. Hindi na awtomatikong kasali ang Host!
+            const participantsSet = new Set();
 
             const JOIN_BUTTON_ID = "roulette_join_btn";
             const START_BUTTON_ID = "roulette_start_btn";
@@ -36,12 +45,12 @@ export default {
                 );
             };
 
-            // 1. Pagpapasali na Embed
+            // 1. Unang Embed: Pagpapasali
             const setupEmbed = new EmbedBuilder()
-                .setTitle("🎡 Official Wheel Roulette: Sali na!")
-                .setDescription(`Mag-click ng **Join Roulette** sa ibaba para mapasama ang pangalan mo sa umiikot na gulong!\n\n👑 **Host:** <@${hostId}>\n*Aantayin ng bot na pindutin ng Host ang Start button para mag-roll.*`)
+                .setTitle("🎡 Anunsyo: Event Roulette")
+                .setDescription(`Mag-click ng **Join Roulette** sa ibaba para mapasama ang pangalan mo sa umiikot na gulong!\n\n👑 **Host:** <@${hostId}>\n*Aantayin ng bot na pindutin ng Host ang Start button para mag-roll. Kahit ang Host ay kailangang mag-click ng Join kung gusto niyang sumali!*`)
                 .setColor(0x5865F2)
-                .setFooter({ text: "Iyong Bot Official | Powered by wheelofnames.com" });
+                .setFooter({ text: "Iyong Bot Official | List Shuffler" });
 
             const message = await interaction.reply({ 
                 embeds: [setupEmbed], 
@@ -51,10 +60,11 @@ export default {
 
             const collector = message.createMessageComponentCollector({
                 componentType: ComponentType.Button,
-                time: 600000 // 10 minutes max waiting time
+                time: 600000 // 10 minutes max waiting
             });
 
             collector.on('collect', async (btnInteraction) => {
+                // KASO A: May nag-click ng "Join Roulette" (Pwede na ang Host dito kung gusto niya)
                 if (btnInteraction.customId === JOIN_BUTTON_ID) {
                     if (participantsSet.has(btnInteraction.user)) {
                         return await btnInteraction.reply({ content: "❌ Kasali na ang pangalan mo!", ephemeral: true });
@@ -64,9 +74,10 @@ export default {
                     await interaction.editReply({ components: [getActionRow()] });
                 }
 
+                // KASO B: May nag-click ng "Start Roulette"
                 if (btnInteraction.customId === START_BUTTON_ID) {
                     if (btnInteraction.user.id !== hostId) {
-                        return await btnInteraction.reply({ content: "❌ **Bawal makialam:** Ang Host lamang ang pwedeng mag-start.", ephemeral: true });
+                        return await btnInteraction.reply({ content: "❌ **Bawal makialam:** Ang Host lamang ang pwedeng mag-start ng roleta.", ephemeral: true });
                     }
                     await btnInteraction.deferUpdate();
                     collector.stop("start_pressed");
@@ -84,90 +95,38 @@ export default {
 
                 const participants = Array.from(participantsSet);
 
-                // Saglit na Loading text habang kinukuha ng bot ang animation sa API
-                const loadingEmbed = new EmbedBuilder()
-                    .setTitle("🎬 Inihahanda ang Gulong... 🎬")
-                    .setDescription("⚡ Kinukuha ang totoong spin animation mula sa Wheel of Names API... Wait lang po!")
-                    .setColor(0xFEE75C);
-                await interaction.editReply({ embeds: [loadingEmbed], components: [] });
-
-                // 2. Pag-contact sa opisyal na Wheel of Names API base sa binigay mong Stoplight Docs
-                // Gagawa tayo ng request para i-render ang listahan ng mga sumali bilang umiikot na GIF
-                const encodedNames = participants.map(u => encodeURIComponent(u.username)).join(',');
-                const wheelBaseUrl = `https://wheelofnames.com/?names=${encodedNames}`;
-
-                let animationAttachment = null;
-                try {
-                    // Tinatawagan ang configuration generator endpoint para sa GIF format
-                    const apiResponse = await fetch("https://wheelofnames.com/api/v2", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            imageFormat: "gif",
-                            size: 360,
-                            fps: 20,
-                            loop: true,
-                            displayWinnerDialog: false,
-                            // Ipinapasok ang dynamic configurations base sa inyong listahan
-                            description: `Discord Spin for ${participants.length} players`
-                        })
-                    });
-
-                    // Kung maayos ang tugon ng server, gagawin natin itong attachment
-                    if (apiResponse.ok) {
-                        const buffer = await apiResponse.arrayBuffer();
-                        animationAttachment = new AttachmentBuilder(Buffer.from(buffer), { name: "wheel-spin.gif" });
-                    }
-                } catch (apiError) {
-                    console.error("API Fetch Error, falling back to layout:", apiError);
+                // Kung walang pumindot kahit isa ng Join button
+                if (participants.length === 0) {
+                    const noParticipantsEmbed = new EmbedBuilder()
+                        .setTitle("🎡 Roulette Cancelled")
+                        .setDescription("❌ Walang sumali sa listahan kaya hindi itinuloy ang pag-roll ng bot.")
+                        .setColor(0xED4245);
+                    return await interaction.editReply({ embeds: [noParticipantsEmbed], components: [] });
                 }
 
-                // 3. 10-Second Spinning Phase Simulation gamit ang totoong GIF (o fallback kapag downtime)
-                const spinEmbed = new EmbedBuilder()
-                    .setTitle("🎰 Ang Gulong ay Umiikot Na! 🎰")
-                    .setDescription(`### 🔄 Umiikot ang mga pangalan ng ${participants.length} na manlalaro!\n\n*Panoorin ang gulong sa ibaba, bumabagal na ang ikot nito...*`)
-                    .setColor(0xFEE75C)
-                    .setFooter({ text: "Naghahanap ng winner... | Iyong Bot Official" });
+                // 2. MISMONG LIST RANDOMIZING/SHUFFLING EFFECT PHASE (10 Seconds)
+                const totalSeconds = 10;
+                const animations = ["⚙️", "🎰", "🔮", "⚡", "🔥"];
 
-                if (animationAttachment) {
-                    spinEmbed.setImage("attachment://wheel-spin.gif");
-                    await interaction.editReply({ embeds: [spinEmbed], files: [animationAttachment] });
-                } else {
-                    // Backup design kung sakaling walang internet/down ang panlabas na endpoint
-                    spinEmbed.setDescription(`### 🔄 [ SPINNING ] 🎡\n\n👥 Kasali: \`${participants.length} players\`\n*Humihinto na ang roleta!*`);
-                    await interaction.editReply({ embeds: [spinEmbed] });
-                }
+                for (let i = totalSeconds; i > 0; i--) {
+                    const randomizedList = shuffleArray(participants);
+                    
+                    const formattedListText = randomizedList
+                        .map((user, index) => `\`[ ${index + 1} ]\` **${user.username}**`)
+                        .join("\n");
 
-                // Papatakbuhin ng eksaktong 10 segundo ang suspense phase bago ibigay ang panalo gaya ng sa video mo!
-                await sleep(10000);
+                    const currentAnim = animations[i % animations.length];
 
-                // 4. Pagpili ng Masuwerteng Winner
-                const winner = participants[Math.floor(Math.random() * participants.length)];
+                    const shuffleEmbed = new EmbedBuilder()
+                        .setTitle(`${currentAnim} Ginugulo at Iniiikot ang Listahan... ${currentAnim}`)
+                        .setDescription(
+                            `### ⏳ Bumabagal na ang gulong sa loob ng: \`${i}s\`\n\n` +
+                            `⚡ **Kasalukuyang Ayos ng mga Pangalan (Shuffling):**\n${formattedListText}\n\n` +
+                            `*Ang pangalang hihinto sa Unang Pwesto [ 1 ] pagkatapos ng timer ang siyang mananalong Winner!*`
+                        )
+                        .setColor(0xFEE75C)
+                        .setFooter({ text: "Sino kaya ang mapalad? | Iyong Bot Official" });
 
-                // 5. Grand Winner Embed
-                const winnerEmbed = new EmbedBuilder()
-                    .setTitle("🎉 TOTOONG ROULETTE WINNER! 🎉")
-                    .setDescription(`### 🏆 Ang mapalad na nabunot sa gulong:\n🏆 **<@${winner.id}>** (${winner.username}) 🏆\n\n🔗 **Gusto niyo bang makita o laruin ang gulong niyo live?**\n👉 [I-click ang link para buksan ang Wheel of Names niyo!](${wheelBaseUrl})`)
-                    .setColor(0x57F287)
-                    .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
-                    .setFooter({ text: "Visual Roulette Completed! | wheelofnames.com" });
-
-                if (animationAttachment) {
-                    return await interaction.editReply({ 
-                        content: `🏆 Congratulations <@${winner.id}>! Ikaw ang nanalo sa Wheel of Names!`, 
-                        embeds: [winnerEmbed],
-                        files: [animationAttachment] // Ika-cache muli para sa huling frame
-                    });
-                } else {
-                    return await interaction.editReply({ 
-                        content: `🏆 Congratulations <@${winner.id}>! Ikaw ang nanalo sa Wheel of Names!`, 
-                        embeds: [winnerEmbed]
-                    });
-                }
-            });
-
-        } catch (error) {
-            console.error("Official API Wheel Roulette Error:", error);
-        }
-    }
-};
+                    await interaction.editReply({ embeds: [shuffleEmbed], components: [] });
+                    await sleep(
+                        
