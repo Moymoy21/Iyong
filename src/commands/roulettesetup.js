@@ -25,7 +25,19 @@ async function generateWheelImage(participantsList, currentRotation = 0) {
             ctx.beginPath(); ctx.moveTo(200, 200); ctx.arc(200, 200, 185, startAngle, endAngle); ctx.lineTo(200, 200); ctx.fill();
             ctx.stroke();
         });
-        // (Avatar logic omitted for brevity, same as previous)
+
+        for (let index = 0; index < activeUsers.length; index++) {
+            const startAngle = (index * anglePerSlice) + currentRotation;
+            const middleAngle = startAngle + (anglePerSlice / 2);
+            const avatarUrl = activeUsers[index].displayAvatarURL({ extension: 'png', size: 64 });
+            try {
+                const avatarImg = await loadImage(avatarUrl);
+                const imgX = 200 + Math.cos(middleAngle) * 120;
+                const imgY = 200 + Math.sin(middleAngle) * 120;
+                ctx.save(); ctx.beginPath(); ctx.arc(imgX, imgY, 20, 0, 2 * Math.PI); ctx.clip();
+                ctx.drawImage(avatarImg, imgX - 20, imgY - 20, 40, 40); ctx.restore();
+            } catch (e) {}
+        }
     }
     ctx.fillStyle = '#ff0000';
     ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
@@ -39,18 +51,17 @@ export default {
         const item = interaction.options.getString('item');
         const participants = new Set();
         const ENTER_ID = "ent", START_ID = "str", REROLL_ID = "rr";
-        let winner = null, lastWinTime = null;
+        let winner = null, lastWinTime = null, finalRotation = 0;
 
-        async function updateMessage(isFinal = false, finalRotation = 0) {
+        async function updateMessage(isFinal = false) {
             const buffer = await generateWheelImage([...participants], finalRotation);
-            const attachment = new AttachmentBuilder(buffer, { name: `w.png` });
-            
+            const attachment = new AttachmentBuilder(buffer, { name: `wheel.png` });
             const participantNames = [...participants].map(u => u.username).join('\n') || "Wala pa.";
             
             const embed = new EmbedBuilder()
                 .setTitle(isFinal ? "Giveaway Winner" : "🎉 GIVEAWAY CREATED")
                 .setColor(isFinal ? 0x57F287 : 0x5865F2)
-                .setImage(`attachment://w.png`)
+                .setImage(`attachment://wheel.png`)
                 .setDescription(isFinal 
                     ? `🏆 Winner: <@${winner.id}>\nItem: **${item}**` 
                     : `**Host:** <@${interaction.user.id}>\n# ${item}\n\n**Participants (${participants.size})**\n${participantNames}`);
@@ -79,9 +90,24 @@ export default {
                 if (i.customId === REROLL_ID && (Date.now() - lastWinTime > 25 * 60000)) return i.reply({ephemeral: true, content: "Giveaway ended!"});
                 
                 const pList = [...participants];
-                winner = pList[Math.floor(Math.random() * pList.length)];
+                if (pList.length === 0) return i.reply({ephemeral: true, content: "Walang participants!"});
+
+                const winnerIdx = Math.floor(Math.random() * pList.length);
+                winner = pList[winnerIdx];
+                const sliceAngle = (2 * Math.PI) / pList.length;
+                const targetRotation = -(winnerIdx * sliceAngle) - (sliceAngle / 2) + (3 * 2 * Math.PI);
+
+                for (let j = 0; j <= 10; j++) {
+                    finalRotation = targetRotation * (1 - Math.pow(1 - (j / 10), 3));
+                    const buffer = await generateWheelImage(pList, finalRotation);
+                    await interaction.editReply({ 
+                        embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setImage('attachment://w.png')],
+                        files: [new AttachmentBuilder(buffer, { name: 'w.png' })]
+                    });
+                    await sleep(1000);
+                }
                 lastWinTime = Date.now();
-                await updateMessage(true, 0); // Simpleng update, pwede mong i-integrate animation dito
+                await updateMessage(true);
             }
         });
     }
