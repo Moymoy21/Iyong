@@ -6,12 +6,10 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 async function generateWheelImage(participantsList, currentRotation = 0) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
-
     ctx.fillStyle = '#2b2d31';
     ctx.fillRect(0, 0, 400, 400);
 
     const activeUsers = participantsList || [];
-
     if (activeUsers.length === 0) {
         ctx.fillStyle = '#5865F2';
         ctx.beginPath(); ctx.arc(200, 200, 150, 0, 2 * Math.PI); ctx.fill();
@@ -24,13 +22,7 @@ async function generateWheelImage(participantsList, currentRotation = 0) {
             const startAngle = (index * anglePerSlice) + currentRotation;
             const endAngle = startAngle + anglePerSlice;
             ctx.fillStyle = sliceColors[index % sliceColors.length];
-            ctx.beginPath(); 
-            ctx.moveTo(200, 200); 
-            ctx.arc(200, 200, 185, startAngle, endAngle); 
-            ctx.lineTo(200, 200); 
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff'; 
-            ctx.lineWidth = 2; 
+            ctx.beginPath(); ctx.moveTo(200, 200); ctx.arc(200, 200, 185, startAngle, endAngle); ctx.lineTo(200, 200); ctx.fill();
             ctx.stroke();
         });
 
@@ -42,96 +34,55 @@ async function generateWheelImage(participantsList, currentRotation = 0) {
                 const avatarImg = await loadImage(avatarUrl);
                 const imgX = 200 + Math.cos(middleAngle) * 120;
                 const imgY = 200 + Math.sin(middleAngle) * 120;
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(imgX, imgY, 20, 0, 2 * Math.PI);
-                ctx.clip();
-                ctx.drawImage(avatarImg, imgX - 20, imgY - 20, 40, 40);
-                ctx.restore();
-            } catch (e) { console.error("Avatar load error:", e); }
+                ctx.save(); ctx.beginPath(); ctx.arc(imgX, imgY, 20, 0, 2 * Math.PI); ctx.clip();
+                ctx.drawImage(avatarImg, imgX - 20, imgY - 20, 40, 40); ctx.restore();
+            } catch (e) {}
         }
     }
-
     ctx.fillStyle = '#ff0000';
     ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
     return canvas.toBuffer('image/png');
 }
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('roulettesetup')
-        .setDescription('Magsimula ng isang Event Roulette Giveaway!')
-        .addStringOption(o => o.setName('item').setDescription('Ano ang premyo?').setRequired(true)),
-
+    data: new SlashCommandBuilder().setName('roulettesetup').setDescription('Magsimula ng Roulette!').addStringOption(o => o.setName('item').setDescription('Premyo').setRequired(true)),
     async execute(interaction) {
         await interaction.deferReply();
         const item = interaction.options.getString('item');
         const participants = new Set();
         const ENTER_ID = "ent", START_ID = "str";
 
-        const getRow = () => new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(START_ID).setLabel("Start Roulette 🚀").setStyle(ButtonStyle.Success)
-        );
-
-        async function updateMessage(isFinal = false, winner = null) {
-            const buffer = await generateWheelImage([...participants]);
+        async function updateMessage(isFinal = false, winner = null, finalRotation = 0) {
+            const buffer = await generateWheelImage([...participants], finalRotation);
             const attachment = new AttachmentBuilder(buffer, { name: `wheel_${Date.now()}.png` });
             const embed = new EmbedBuilder()
-                .setTitle(isFinal ? "🎉 WINNER!" : "🎉 GIVEAWAY STARTED!")
-                .setDescription(isFinal ? `🏆 Nanalo ng **${item}**: <@${winner.id}>` : `Item: **${item}**\nHost: <@${interaction.user.id}>\n\nClick "Enter" para sumali!`)
-                .setImage(`attachment://${attachment.name}`)
-                .setColor(isFinal ? 0x57F287 : 0x5865F2);
-
-            await interaction.editReply({ embeds: [embed], files: [attachment], components: isFinal ? [] : [getRow()] });
+                .setTitle(isFinal ? "🎉 WINNER!" : "🎉 GIVEAWAY!")
+                .setDescription(isFinal ? `🏆 Nanalo ng **${item}**: <@${winner.id}>` : `Host: <@${interaction.user.id}>\nClick "Enter" para sumali!`)
+                .setImage(`attachment://${attachment.name}`).setColor(isFinal ? 0x57F287 : 0x5865F2);
+            await interaction.editReply({ embeds: [embed], files: [attachment], components: isFinal ? [] : [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId(START_ID).setLabel("Start").setStyle(ButtonStyle.Success))] });
         }
 
         await updateMessage();
-
         const collector = interaction.channel.createMessageComponentCollector({ time: 600000 });
-
         collector.on('collect', async (i) => {
             if (i.customId === ENTER_ID) {
                 if ([...participants].some(u => u.id === i.user.id)) return i.reply({ ephemeral: true, content: "Kasali ka na!" });
-                participants.add(i.user);
-                await i.deferUpdate();
-                await updateMessage();
+                participants.add(i.user); await i.deferUpdate(); await updateMessage();
             } else if (i.customId === START_ID) {
-                if (i.user.id !== interaction.user.id) return i.reply({ ephemeral: true, content: "Host lang pwede!" });
-                if (participants.size === 0) return i.reply({ ephemeral: true, content: "Walang participants!" });
-                
                 collector.stop();
                 const pList = [...participants];
                 const winnerIdx = Math.floor(Math.random() * pList.length);
-                const winner = pList[winnerIdx];
-
                 const sliceAngle = (2 * Math.PI) / pList.length;
-                // Offset na nagtatapat sa gitna ng slice sa pointer
-                const offset = sliceAngle / 2;
-                const targetRotation = -(winnerIdx * sliceAngle) - offset + (3 * 2 * Math.PI); 
+                const targetRotation = -(winnerIdx * sliceAngle) - (sliceAngle / 2) + (3 * 2 * Math.PI);
 
-                const totalFrames = 10;
-                for (let j = 0; j <= totalFrames; j++) {
-                    const progress = j / totalFrames;
-                    const easeOut = 1 - Math.pow(1 - progress, 3);
-                    const currentRotation = targetRotation * easeOut;
-
+                for (let j = 0; j <= 10; j++) {
+                    const currentRotation = targetRotation * (1 - Math.pow(1 - (j / 10), 3));
                     const buffer = await generateWheelImage(pList, currentRotation);
                     const attachment = new AttachmentBuilder(buffer, { name: `spin_${j}.png` });
-                    
-                    await interaction.editReply({
-                        embeds: [new EmbedBuilder()
-                            .setTitle("🎰 ROLLING...")
-                            .setDescription(`Item: **${item}**\n\n**Tinatapik na ang swerte...**`)
-                            .setImage(`attachment://spin_${j}.png`)
-                            .setColor(0xFEE75C)],
-                        files: [attachment],
-                        components: []
-                    });
-                    await sleep(1000); // 1 second bawat frame
+                    await interaction.editReply({ embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setImage(`attachment://spin_${j}.png`)], files: [attachment] });
+                    await sleep(1000);
                 }
-
-                await updateMessage(true, winner);
+                await updateMessage(true, pList[winnerIdx], targetRotation);
             }
         });
     }
