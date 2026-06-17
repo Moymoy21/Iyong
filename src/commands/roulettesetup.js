@@ -24,8 +24,6 @@ export default {
     async execute(interaction) {
         try {
             const hostId = interaction.user.id;
-            
-            // PATAS NA LABAN: Naka-blanko na ang Set sa simula. Hindi na awtomatikong kasali ang Host!
             const participantsSet = new Set();
 
             const JOIN_BUTTON_ID = "roulette_join_btn";
@@ -60,11 +58,10 @@ export default {
 
             const collector = message.createMessageComponentCollector({
                 componentType: ComponentType.Button,
-                time: 600000 // 10 minutes max waiting
+                time: 600000 
             });
 
             collector.on('collect', async (btnInteraction) => {
-                // KASO A: May nag-click ng "Join Roulette" (Pwede na ang Host dito kung gusto niya)
                 if (btnInteraction.customId === JOIN_BUTTON_ID) {
                     if (participantsSet.has(btnInteraction.user)) {
                         return await btnInteraction.reply({ content: "❌ Kasali na ang pangalan mo!", ephemeral: true });
@@ -74,7 +71,6 @@ export default {
                     await interaction.editReply({ components: [getActionRow()] });
                 }
 
-                // KASO B: May nag-click ng "Start Roulette"
                 if (btnInteraction.customId === START_BUTTON_ID) {
                     if (btnInteraction.user.id !== hostId) {
                         return await btnInteraction.reply({ content: "❌ **Bawal makialam:** Ang Host lamang ang pwedeng mag-start ng roleta.", ephemeral: true });
@@ -95,7 +91,6 @@ export default {
 
                 const participants = Array.from(participantsSet);
 
-                // Kung walang pumindot kahit isa ng Join button
                 if (participants.length === 0) {
                     const noParticipantsEmbed = new EmbedBuilder()
                         .setTitle("🎡 Roulette Cancelled")
@@ -104,7 +99,7 @@ export default {
                     return await interaction.editReply({ embeds: [noParticipantsEmbed], components: [] });
                 }
 
-                // 2. MISMONG LIST RANDOMIZING/SHUFFLING EFFECT PHASE (10 Seconds)
+                // 2. Shuffling Animation Phase (10 Seconds)
                 const totalSeconds = 10;
                 const animations = ["⚙️", "🎰", "🔮", "⚡", "🔥"];
 
@@ -128,5 +123,41 @@ export default {
                         .setFooter({ text: "Sino kaya ang mapalad? | Iyong Bot Official" });
 
                     await interaction.editReply({ embeds: [shuffleEmbed], components: [] });
-                    await sleep(
-                        
+                    await sleep(1000); 
+                }
+
+                // 3. Pagpili ng Winner
+                const winner = participants[Math.floor(Math.random() * participants.length)];
+                const encodedNames = participants.map(u => encodeURIComponent(u.username)).join(',');
+                const wheelBaseUrl = `https://wheelofnames.com/?names=${encodedNames}`;
+
+                const finalFiltered = participants.filter(u => u.id !== winner.id);
+                const finalShuffled = [winner, ...shuffleArray(finalFiltered)];
+                const finalRealListText = finalShuffled
+                    .map((user, index) => `${index === 0 ? '👑' : `\`[ ${index + 1} ]\``} **${user.username}** ${index === 0 ? '👈 WINNER!' : ''}`)
+                    .join("\n");
+
+                // 4. Final Winner Embed
+                const winnerEmbed = new EmbedBuilder()
+                    .setTitle("🎉 ROULETTE WINNER CHOSEN! 🎉")
+                    .setDescription(
+                        `### 🏆 Ang mapalad na nabunot sa gulong:\n🏆 **<@${winner.id}>** (${winner.username}) 🏆\n\n` +
+                        `📋 **Huling Resulta ng Listahan:**\n${finalRealListText}\n\n` +
+                        `🔗 **Gusto niyo bang laruin ang listahan niyo sa web?**\n👉 [I-click ang link para sa Wheel of Names niyo!](${wheelBaseUrl})`
+                    )
+                    .setColor(0x57F287)
+                    .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
+                    .setFooter({ text: "Visual Roulette Completed! | wheelofnames.com" });
+
+                return await interaction.editReply({ 
+                    content: `🏆 Congratulations <@${winner.id}>! Ikaw ang nanalo sa Wheel of Names!`, 
+                    embeds: [winnerEmbed],
+                    components: []
+                });
+            });
+
+        } catch (error) {
+            console.error("List Randomizer Roulette Error:", error);
+        }
+    }
+};
