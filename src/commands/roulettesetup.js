@@ -78,7 +78,7 @@ export default {
             .setColor(0x5865F2);
 
         if (img) {
-            initialEmbed.setImage(img); // Malaking larawan na pwedeng i-click/zoom
+            initialEmbed.setImage(img); 
         } else {
             initialEmbed.setImage('attachment://wheel.png');
         }
@@ -94,47 +94,40 @@ export default {
         async function runSpin(pList) {
             if (pList.length === 0) return;
 
-            // 1. COUNTDOWN ANIMATION (Iwas Blink Trick)
-            // Sa halip na i-edit ang picture nang paunti-unti, magpapakita muna tayo ng countdown sa text.
             const countdownEmbed = new EmbedBuilder()
                 .setTitle("🎰 ROLLING THE WHEEL...")
                 .setDescription(`Item: **${item}**\n\n**Ang gulong ay umiikot na...**\nStatus: 🕒 Kinakalkula ang resulta...`)
                 .setColor(0xFEE75C);
                 
-            if (img) countdownEmbed.setThumbnail(img); // Panatilihing nakikita ang item habang nag-e-edit
+            if (img) countdownEmbed.setThumbnail(img);
 
             await interaction.editReply({
                 embeds: [countdownEmbed],
-                components: [] // Tanggalin muna ang mga button habang umiikot
+                components: [] 
             });
 
-            // Mag-antay ng 2.5 segundo para sa suspense simulation habang nirerender ang panalo
             await sleep(2500); 
 
-            // 2. KALKULASYON NG PANALO
             const winnerIdx = Math.floor(Math.random() * pList.length);
             const sliceAngle = (2 * Math.PI) / pList.length;
             
-            // Random na dagdag na ikot gamit ang random offset para iba-iba ang huling pwesto
             const randomOffset = Math.random() * sliceAngle;
             const targetRotation = (winnerIdx * -sliceAngle) - randomOffset + (Math.PI * 0.5);
             
             const buf = await generateWheelImage(pList, targetRotation);
             const winner = pList[winnerIdx];
             
-            // 3. WINNER SCREEN LAYOUT
             const embed = new EmbedBuilder()
                 .setTitle("🎉 WINNER! 🎉").setColor(0x57F287)
                 .setDescription(`🏆 Nanalo ng **${item}**: <@${winner.id}>\n\n📋 **Listahan:**\n${pList.map((u, i) => `${i===winnerIdx?'👑':`[${i+1}]`} **${u.username}** ${i===winnerIdx?'👈':''}`).join('\n')}`)
-                .setThumbnail(winner.displayAvatarURL()); // Maliit na avatar ng nanalo sa gilid
+                .setThumbnail(winner.displayAvatarURL());
 
             if (img) {
-                embed.setImage(img); // Malaking image ng item na pwedeng mai-click para mag-zoom sa dulo
+                embed.setImage(img); 
             } else {
                 embed.setImage('attachment://wheel.png');
             }
 
-            // Bagong attachment para sa huling pwesto ng gulong
             const filesToSend = [new AttachmentBuilder(buf, { name: 'wheel.png' })];
 
             const finalMsg = await interaction.editReply({
@@ -144,7 +137,6 @@ export default {
                 components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(REROLL_ID).setLabel("Reroll 🔄").setStyle(ButtonStyle.Danger))]
             });
 
-            // 4. REROLL SYSTEM COLLECTOR
             const rerollCollector = finalMsg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 300000 });
             
             rerollCollector.on('collect', async (ri) => {
@@ -163,11 +155,13 @@ export default {
                 participants.add(i.user);
                 await i.deferUpdate();
                 
-                // Panatilihin ang kasalukuyang embed properties nang hindi nasisira ang larawan
-                const currentEmbed = EmbedBuilder.from(msg.embeds[0]);
+                // INAYOS: Ligtas na pag-reconstruct ng kasalukuyang embed mula sa unang posisyon ng array
+                const activeEmbed = msg.embeds && msg.embeds[0] 
+                    ? EmbedBuilder.from(msg.embeds[0]) 
+                    : initialEmbed;
                 
                 await interaction.editReply({ 
-                    embeds: [currentEmbed],
+                    embeds: [activeEmbed],
                     files: [new AttachmentBuilder(await generateWheelImage([...participants], 0), { name: 'wheel.png' })],
                     components: [getRow()] 
                 });
