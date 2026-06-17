@@ -3,7 +3,6 @@ import { createCanvas, loadImage } from '@napi-rs/canvas';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// 🔥 TANGGAL ANG SHUFFLE DITO PARA LOCK ANG KULAY AT POSITION NG PLAYERS
 async function generateWheelImage(participantsList, currentRotation) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
@@ -16,17 +15,15 @@ async function generateWheelImage(participantsList, currentRotation) {
 
         const activeUsers = participantsList || [];
 
-        // CASE A: Walang sumali pa
         if (activeUsers.length === 0) {
             ctx.fillStyle = '#5865F2'; 
             ctx.beginPath();
             ctx.arc(200, 200, 185, 0, 2 * Math.PI);
             ctx.fill();
         } 
-        // CASE B: 1 Player lang ang kasali (Solid Color + PFP sa gitna)
         else if (activeUsers.length === 1) {
             const singleUser = activeUsers[0];
-            ctx.fillStyle = '#57F287'; // Permanenteng Green kapag mag-isa
+            ctx.fillStyle = '#57F287'; 
             ctx.beginPath();
             ctx.arc(200, 200, 185, 0, 2 * Math.PI);
             ctx.fill();
@@ -51,16 +48,12 @@ async function generateWheelImage(participantsList, currentRotation) {
                 console.error(e);
             }
         } 
-        // CASE C: Maraming Slices (Locked Colors + Smooth Rotation Offset)
         else {
             const numSlices = activeUsers.length;
             const anglePerSlice = (2 * Math.PI) / numSlices;
-            
-            // Ang currentRotation ay galing sa dahan-dahang pagtaas ng value para maging swabe ang ikot
             const rotationOffset = currentRotation; 
             const sliceColors = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3498DB', '#9B59B6', '#1ABC9C'];
 
-            // 1. Iguhit ang mga kulay na slices (LOCKED ayon sa index ng player!)
             activeUsers.forEach((user, index) => {
                 const startAngle = index * anglePerSlice + rotationOffset;
                 const endAngle = startAngle + anglePerSlice;
@@ -77,7 +70,6 @@ async function generateWheelImage(participantsList, currentRotation) {
                 ctx.stroke();
             });
 
-            // 2. I-paste ang Avatar ng bawat player (LOCKED sa kani-kanilang kulay!)
             for (let index = 0; index < activeUsers.length; index++) {
                 const user = activeUsers[index];
                 const startAngle = index * anglePerSlice + rotationOffset;
@@ -107,14 +99,12 @@ async function generateWheelImage(participantsList, currentRotation) {
                 }
             }
 
-            // Gitnang puting cover ring
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
             ctx.arc(200, 200, 38, 0, 2 * Math.PI);
             ctx.fill();
         }
 
-        // Kanang pulang tagaturo ng panalo
         ctx.fillStyle = '#ff0000';
         ctx.beginPath();
         ctx.moveTo(375, 200);
@@ -149,12 +139,13 @@ export default {
         try {
             const hostId = interaction.user.id;
             const itemToGiveaway = interaction.options.getString('item');
-            const spinDuration = interaction.options.getInteger('duration') || 5; // Ginawang 5s para iwas lag sa Discord rate limits
+            const spinDuration = interaction.options.getInteger('duration') || 5; 
             
             const participantsSet = new Set();
 
             const ENTER_BUTTON_ID = "roulette_enter_btn";
             const START_BUTTON_ID = "roulette_start_btn";
+            const REROLL_BUTTON_ID = "roulette_reroll_btn";
 
             const getActionRow = () => {
                 return new ActionRowBuilder().addComponents(
@@ -237,6 +228,81 @@ export default {
                 }
             });
 
+            // 🔄 FUNCTION PARA SA PAG-SPIN AT RESULTA (Kaya nitong i-reuse ng Reroll system)
+            async function runRouletteSpin(participantsList) {
+                let currentAngle = 0;
+                const totalTicks = spinDuration * 2; 
+
+                const shuffleEmbed = new EmbedBuilder()
+                    .setTitle("🎰 Umiikot na ang Gulong... Mag-abang sa Resulta! 🎰")
+                    .setDescription(`🎁 **Item:** \`${itemToGiveaway}\`\n⚡ *Kasalukuyang tinutukoy ng roleta ang mananalo...*`)
+                    .setColor(0xFEE75C);
+
+                for (let tick = 0; tick < totalTicks; tick++) {
+                    currentAngle += 1.8; 
+                    const rollingBuffer = await generateWheelImage(participantsList, currentAngle);
+                    const rollingAttachment = new AttachmentBuilder(rollingBuffer, { name: 'rendered-wheel.png' });
+                    const finalEmbed = EmbedBuilder.from(shuffleEmbed).setImage('attachment://rendered-wheel.png');
+
+                    await interaction.editReply({ embeds: [finalEmbed], files: [rollingAttachment], components: [] });
+                    await sleep(500); 
+                }
+
+                // PUMILI NG MANANALO
+                const winner = participantsList[Math.floor(Math.random() * participantsList.length)];
+                const finalFiltered = participantsList.filter(u => u.id !== winner.id);
+                
+                // RE-FORMATTED RESULT (TINANGGAL ANG WHEEL OF NAMES AT INAYOS ANG LISTAHAN)
+                const finalRealListText = [winner, ...finalFiltered]
+                    .map((user, index) => `${index === 0 ? '👑' : `\`[ ${index + 1} ]\``} **${user.username}** ${index === 0 ? '👈 WINNER!' : ''}`)
+                    .join("\n");
+
+                const winnerEmbed = new EmbedBuilder()
+                    .setTitle("🎉 GIVEAWAY ROULLETE WINNER! 🎉")
+                    .setDescription(
+                        `### 🏆 Ang mapalad na nanalo ng **${itemToGiveaway}**:\n🏆 **<@${winner.id}>** (${winner.username}) 🏆\n\n` +
+                        `📋 **Huling Resulta ng Listahan:**\n${finalRealListText}`
+                    )
+                    .setColor(0x57F287)
+                    .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
+                    .setFooter({ text: "Visual Roulette Completed! | Iyong Bot Official" });
+
+                // 🔄 MAG-ADD NG REROLL BUTTON SA ILALIM NG RESULTA
+                const rerollRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(REROLL_BUTTON_ID)
+                        .setLabel("Reroll 🔄")
+                        .setStyle(ButtonStyle.Danger)
+                );
+
+                const finalMessage = await interaction.editReply({ 
+                    content: `🏆 Congratulations <@${winner.id}>! Ikaw ang nanalo ng **${itemToGiveaway}**!`, 
+                    embeds: [winnerEmbed],
+                    files: [], 
+                    components: [rerollRow]
+                });
+
+                // 🛡️ SUB-COLLECTOR PARA SA REROLL BUTTON (HOST ONLY VALIDATION)
+                const rerollCollector = finalMessage.createMessageComponentCollector({
+                    componentType: ComponentType.Button,
+                    time: 300000 // Aktibo ang button sa loob ng 5 minuto pagkatapos ng laro
+                });
+
+                rerollCollector.on('collect', async (rerollInteraction) => {
+                    if (rerollInteraction.customId === REROLL_BUTTON_ID) {
+                        if (rerollInteraction.user.id !== hostId) {
+                            return await rerollInteraction.reply({ content: "❌ **Bawal makialam:** Ang Host lamang na nag-start ng giveaway ang pwedeng mag-click ng Reroll!", ephemeral: true });
+                        }
+                        
+                        await rerollInteraction.deferUpdate();
+                        rerollCollector.stop("reroll_triggered");
+                        
+                        // Patakbuhin ulit ang spin gamit ang parehong listahan ng nakaraang players!
+                        await runRouletteSpin(participantsList);
+                    }
+                });
+            }
+
             collector.on('end', async (collected, reason) => {
                 if (reason !== "start_pressed") {
                     const timeoutEmbed = new EmbedBuilder()
@@ -246,7 +312,6 @@ export default {
                     return await interaction.editReply({ embeds: [timeoutEmbed], components: [], files: [] });
                 }
 
-                // ETO NA ANG FIX: Permanenteng pagkakasunod-sunod ng sumali, Bawal i-shuffle!
                 const participants = Array.from(participantsSet);
 
                 if (participants.length === 0) {
@@ -257,56 +322,8 @@ export default {
                     return await interaction.editReply({ embeds: [noParticipantsEmbed], components: [], files: [] });
                 }
 
-                // 🔄 SMOOTH SPIN ALGORITHM USING MATH ROTATION INDEPENDENT OF SHUFFLE
-                let currentAngle = 0;
-                const totalTicks = spinDuration * 2; // Hatiin ang bawat segundo sa 2 ticks para mas mabilis at hindi mukhang lag
-                
-                // HIDDEN CHANGING TEXT: Itatago natin ang gumagalaw na listahan sa chat habang nag-eexecute ang rotation!
-                const shuffleEmbed = new EmbedBuilder()
-                    .setTitle("🎰 Umiikot na ang Gulong... Mag-abang sa Resulta! 🎰")
-                    .setDescription(`🎁 **Item:** \`${itemToGiveaway}\`\n⚡ *Kasalukuyang tinutukoy ng roleta ang mananalo...*`)
-                    .setColor(0xFEE75C);
-
-                for (let tick = 0; tick < totalTicks; tick++) {
-                    // Dahan-dahang daragdagan ang anggulo para umikot nang swabe
-                    currentAngle += 1.8; 
-                    
-                    const rollingBuffer = await generateWheelImage(participants, currentAngle);
-                    const rollingAttachment = new AttachmentBuilder(rollingBuffer, { name: 'rendered-wheel.png' });
-
-                    const finalEmbed = EmbedBuilder.from(shuffleEmbed).setImage('attachment://rendered-wheel.png');
-
-                    await interaction.editReply({ embeds: [finalEmbed], files: [rollingAttachment], components: [] });
-                    await sleep(500); // 500ms bawat render para swabe ang transitions
-                }
-
-                // 🏆 PAGPILI NG MANANALO PAGKATAPOS NG SWABENG IKOT
-                const winner = participants[Math.floor(Math.random() * participants.length)];
-                const encodedNames = participants.map(u => encodeURIComponent(u.username)).join(',');
-                const wheelBaseUrl = `https://wheelofnames.com/yvy-ukr?names=${encodedNames}`;
-
-                const finalFiltered = participants.filter(u => u.id !== winner.id);
-                const finalRealListText = [winner, ...finalFiltered]
-                    .map((user, index) => `${index === 0 ? '👑' : `\`[ ${index + 1} ]\``} **${user.username}** ${index === 0 ? '👈 WINNER!' : ''}`)
-                    .join("\n");
-
-                const winnerEmbed = new EmbedBuilder()
-                    .setTitle("🎉 GIVEAWAY ROULLETE WINNER! 🎉")
-                    .setDescription(
-                        `### 🏆 Ang mapalad na nanalo ng **${itemToGiveaway}**:\n🏆 **<@${winner.id}>** (${winner.username}) 🏆\n\n` +
-                        `📋 **Huling Resulta ng Listahan:**\n${finalRealListText}\n\n` +
-                        `🔗 **Gusto niyo bang laruin ang eksaktong slices na ito sa web niyo?**\n👉 [I-click ang link para sa Wheel of Names niyo!](${wheelBaseUrl})`
-                    )
-                    .setColor(0x57F287)
-                    .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
-                    .setFooter({ text: "Visual Roulette Completed! | Iyong Bot Official" });
-
-                return await interaction.editReply({ 
-                    content: `🏆 Congratulations <@${winner.id}>! Ikaw ang nanalo ng **${itemToGiveaway}**!`, 
-                    embeds: [winnerEmbed],
-                    files: [], 
-                    components: []
-                });
+                // Simulan ang unang pag-ikot
+                await runRouletteSpin(participants);
             });
 
         } catch (error) {
