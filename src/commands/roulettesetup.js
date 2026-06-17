@@ -10,324 +10,119 @@ async function generateWheelImage(participantsList, currentRotation) {
     try {
         const wheelImageUrl = "https://cdn.discordapp.com/attachments/1065770284692558005/1516606427236401184/wheel.webp?ex=6a33414d&is=6a31efcd&hm=c95f39f936a6e07c00b590182ad17c41e059aa5a3d294912542307bc2a89ed1f&";
         const baseWheel = await loadImage(wheelImageUrl);
-        
         ctx.drawImage(baseWheel, 0, 0, 400, 400);
 
         const activeUsers = participantsList || [];
 
         if (activeUsers.length === 0) {
             ctx.fillStyle = '#5865F2'; 
-            ctx.beginPath();
-            ctx.arc(200, 200, 185, 0, 2 * Math.PI);
-            ctx.fill();
-        } 
-        else if (activeUsers.length === 1) {
-            const singleUser = activeUsers[0];
-            ctx.fillStyle = '#57F287'; 
-            ctx.beginPath();
-            ctx.arc(200, 200, 185, 0, 2 * Math.PI);
-            ctx.fill();
-
-            try {
-                const avatarUrl = singleUser.displayAvatarURL({ extension: 'png', size: 128 });
-                const avatarImg = await loadImage(avatarUrl);
-                
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(200, 200, 50, 0, 2 * Math.PI);
-                ctx.clip();
-                ctx.drawImage(avatarImg, 150, 150, 100, 100);
-                ctx.restore();
-
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.arc(200, 200, 50, 0, 2 * Math.PI);
-                ctx.stroke();
-            } catch (e) {
-                console.error(e);
-            }
-        } 
-        else {
+            ctx.beginPath(); ctx.arc(200, 200, 185, 0, 2 * Math.PI); ctx.fill();
+        } else if (activeUsers.length === 1) {
+            ctx.fillStyle = '#57F287';
+            ctx.beginPath(); ctx.arc(200, 200, 185, 0, 2 * Math.PI); ctx.fill();
+            const avatarImg = await loadImage(activeUsers[0].displayAvatarURL({ extension: 'png', size: 128 }));
+            ctx.save(); ctx.beginPath(); ctx.arc(200, 200, 50, 0, 2 * Math.PI); ctx.clip();
+            ctx.drawImage(avatarImg, 150, 150, 100, 100); ctx.restore();
+        } else {
             const numSlices = activeUsers.length;
             const anglePerSlice = (2 * Math.PI) / numSlices;
-            const rotationOffset = currentRotation; 
             const sliceColors = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3498DB', '#9B59B6', '#1ABC9C'];
 
             activeUsers.forEach((user, index) => {
-                const startAngle = index * anglePerSlice + rotationOffset;
+                const startAngle = index * anglePerSlice + currentRotation;
                 const endAngle = startAngle + anglePerSlice;
-
                 ctx.fillStyle = sliceColors[index % sliceColors.length];
-                ctx.beginPath();
-                ctx.moveTo(200, 200);
-                ctx.arc(200, 200, 185, startAngle, endAngle);
-                ctx.lineTo(200, 200);
-                ctx.fill();
-
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(200, 200); ctx.arc(200, 200, 185, startAngle, endAngle); ctx.lineTo(200, 200); ctx.fill();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
             });
 
             for (let index = 0; index < activeUsers.length; index++) {
-                const user = activeUsers[index];
-                const startAngle = index * anglePerSlice + rotationOffset;
-                const middleAngle = startAngle + (anglePerSlice / 2);
-
-                try {
-                    const avatarUrl = user.displayAvatarURL({ extension: 'png', size: 64 });
-                    const avatarImg = await loadImage(avatarUrl);
-
-                    const imgX = 200 + Math.cos(middleAngle) * 110;
-                    const imgY = 200 + Math.sin(middleAngle) * 110;
-
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(imgX, imgY, 22, 0, 2 * Math.PI);
-                    ctx.clip();
-                    ctx.drawImage(avatarImg, imgX - 22, imgY - 22, 44, 44);
-                    ctx.restore();
-
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(imgX, imgY, 22, 0, 2 * Math.PI);
-                    ctx.stroke();
-                } catch (imgErr) {
-                    console.error(imgErr);
-                }
+                const middleAngle = (index * anglePerSlice + currentRotation) + (anglePerSlice / 2);
+                const avatarImg = await loadImage(activeUsers[index].displayAvatarURL({ extension: 'png', size: 64 }));
+                const imgX = 200 + Math.cos(middleAngle) * 110;
+                const imgY = 200 + Math.sin(middleAngle) * 110;
+                ctx.save(); ctx.beginPath(); ctx.arc(imgX, imgY, 22, 0, 2 * Math.PI); ctx.clip();
+                ctx.drawImage(avatarImg, imgX - 22, imgY - 22, 44, 44); ctx.restore();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(imgX, imgY, 22, 0, 2 * Math.PI); ctx.stroke();
             }
-
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(200, 200, 38, 0, 2 * Math.PI);
-            ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(200, 200, 38, 0, 2 * Math.PI); ctx.fill();
         }
 
-        ctx.fillStyle = '#ff0000';
-        ctx.beginPath();
-        ctx.moveTo(375, 200);
-        ctx.lineTo(400, 180);
-        ctx.lineTo(400, 220);
-        ctx.closePath();
-        ctx.fill();
-
+        ctx.fillStyle = '#ff0000'; ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
         return canvas.toBuffer('image/png');
-    } catch (err) {
-        console.error("Canvas Rendering Error:", err);
-        return null;
-    }
+    } catch (err) { return null; }
 }
 
 export default {
     data: new SlashCommandBuilder()
         .setName('roulettesetup')
         .setDescription('Magsimula ng isang Event Roulette Giveaway!')
-        .addStringOption(option => 
-            option.setName('item')
-                .setDescription('Ano ang ipamimigay mong item?')
-                .setRequired(true)
-        )
-        .addIntegerOption(option =>
-            option.setName('duration')
-                .setDescription('Ilang segundo ang tagal ng pag-ikot? (Default: 5)')
-                .setRequired(false)
-        ),
+        .addStringOption(o => o.setName('item').setDescription('Ano ang premyo?').setRequired(true))
+        .addAttachmentOption(o => o.setName('image').setDescription('Screenshot ng item (Optional)')),
 
     async execute(interaction) {
-        try {
-            const hostId = interaction.user.id;
-            const itemToGiveaway = interaction.options.getString('item');
-            const spinDuration = interaction.options.getInteger('duration') || 5; 
-            
-            const participantsSet = new Set();
+        const hostId = interaction.user.id;
+        const item = interaction.options.getString('item');
+        const img = interaction.options.getAttachment('image')?.url || null;
+        const participants = new Set();
+        const ENTER_ID = "ent", START_ID = "str", REROLL_ID = "rr";
 
-            const ENTER_BUTTON_ID = "roulette_enter_btn";
-            const START_BUTTON_ID = "roulette_start_btn";
-            const REROLL_BUTTON_ID = "roulette_reroll_btn";
+        const getRow = () => new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(START_ID).setLabel("Start Roulette 🚀").setStyle(ButtonStyle.Success)
+        );
 
-            const getActionRow = () => {
-                return new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(ENTER_BUTTON_ID)
-                        .setLabel(`Enter (${participantsSet.size})`)
-                        .setStyle(ButtonStyle.Primary)
-                        .setEmoji("🎟️"),
-                    new ButtonBuilder()
-                        .setCustomId(START_BUTTON_ID)
-                        .setLabel("Start Roulette 🚀")
-                        .setStyle(ButtonStyle.Success)
-                );
-            };
+        let msg = await interaction.reply({
+            embeds: [new EmbedBuilder().setTitle("🎉 GIVEAWAY STARTED!").setDescription(`Item: **${item}**\nHost: <@${hostId}>`).setImage('attachment://wheel.png').setThumbnail(img).setColor(0x5865F2)],
+            files: [new AttachmentBuilder(await generateWheelImage([], 0), { name: 'wheel.png' })],
+            components: [getRow()], fetchReply: true
+        });
 
-            const initialBuffer = await generateWheelImage([], 0);
-            const initialAttachment = new AttachmentBuilder(initialBuffer, { name: 'rendered-wheel.png' });
+        const collector = msg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 600000 });
 
-            const setupEmbed = new EmbedBuilder()
-                .setTitle("🎉 GIVEAWAY EVENT STARTED! 🎉")
-                .setDescription(
-                    `🎁 **Items to Giveaway:** \`${itemToGiveaway}\`\n` +
-                    `👑 **Host:** <@${hostId}>\n` +
-                    `⏱️ **Spin Duration:** \`${spinDuration} seconds\`\n` +
-                    `-----------------------------------\n` +
-                    `👇 Pindutin ang **Enter** sa ibaba para sumali sa listahan ng roleta!`
-                )
-                .setImage('attachment://rendered-wheel.png')
-                .setColor(0x5865F2)
-                .setFooter({ text: "Iyong Bot Official | Locked Smooth Spin Engine" });
+        async function runSpin(pList) {
+            const winnerIdx = Math.floor(Math.random() * pList.length);
+            const sliceAngle = (2 * Math.PI) / pList.length;
+            const finalRot = (winnerIdx * -sliceAngle) + (Math.PI * 2);
+            const totalTicks = 20;
 
-            const message = await interaction.reply({ 
-                embeds: [setupEmbed], 
-                components: [getActionRow()], 
-                files: [initialAttachment],
-                fetchReply: true 
-            });
-
-            const collector = message.createMessageComponentCollector({
-                componentType: ComponentType.Button,
-                time: 600000 
-            });
-
-            collector.on('collect', async (btnInteraction) => {
-                if (btnInteraction.customId === ENTER_BUTTON_ID) {
-                    if (Array.from(participantsSet).some(u => u.id === btnInteraction.user.id)) {
-                        return await btnInteraction.reply({ content: "❌ Kasali ka na sa laro!", ephemeral: true });
-                    }
-                    participantsSet.add(btnInteraction.user);
-                    await btnInteraction.deferUpdate();
-                    
-                    const participantsList = Array.from(participantsSet);
-                    const updatedBuffer = await generateWheelImage(participantsList, 0);
-                    const updatedAttachment = new AttachmentBuilder(updatedBuffer, { name: 'rendered-wheel.png' });
-                    
-                    const currentListText = participantsList.map((user, i) => `\`[ ${i + 1} ]\` **${user.username}**`).join('\n');
-                    const updatedEmbed = EmbedBuilder.from(setupEmbed)
-                        .setDescription(
-                            `🎁 **Items to Giveaway:** \`${itemToGiveaway}\`\n` +
-                            `👑 **Host:** <@${hostId}>\n` +
-                            `⏱️ **Spin Duration:** \`${spinDuration} seconds\`\n` +
-                            `-----------------------------------\n` +
-                            `⚡ **Mga Kasalukuyang Sumali (${participantsSet.size}):**\n${currentListText}\n\n` +
-                            `👇 Pindutin ang **Enter** sa ibaba para sumali sa listahan ng roleta!`
-                        );
-
-                    await interaction.editReply({ 
-                        embeds: [updatedEmbed],
-                        components: [getActionRow()],
-                        files: [updatedAttachment]
-                    });
-                }
-
-                if (btnInteraction.customId === START_BUTTON_ID) {
-                    if (btnInteraction.user.id !== hostId) {
-                        return await btnInteraction.reply({ content: "❌ **Bawal makialam:** Ang Host lamang ang pwedeng mag-start ng roleta.", ephemeral: true });
-                    }
-                    await btnInteraction.deferUpdate();
-                    collector.stop("start_pressed");
-                }
-            });
-
-            // 🔄 FUNCTION PARA SA PAG-SPIN AT RESULTA (Kaya nitong i-reuse ng Reroll system)
-            async function runRouletteSpin(participantsList) {
-                let currentAngle = 0;
-                const totalTicks = spinDuration * 2; 
-
-                const shuffleEmbed = new EmbedBuilder()
-                    .setTitle("🎰 Umiikot na ang Gulong... Mag-abang sa Resulta! 🎰")
-                    .setDescription(`🎁 **Item:** \`${itemToGiveaway}\`\n⚡ *Kasalukuyang tinutukoy ng roleta ang mananalo...*`)
-                    .setColor(0xFEE75C);
-
-                for (let tick = 0; tick < totalTicks; tick++) {
-                    currentAngle += 1.8; 
-                    const rollingBuffer = await generateWheelImage(participantsList, currentAngle);
-                    const rollingAttachment = new AttachmentBuilder(rollingBuffer, { name: 'rendered-wheel.png' });
-                    const finalEmbed = EmbedBuilder.from(shuffleEmbed).setImage('attachment://rendered-wheel.png');
-
-                    await interaction.editReply({ embeds: [finalEmbed], files: [rollingAttachment], components: [] });
-                    await sleep(500); 
-                }
-
-                // PUMILI NG MANANALO
-                const winner = participantsList[Math.floor(Math.random() * participantsList.length)];
-                const finalFiltered = participantsList.filter(u => u.id !== winner.id);
-                
-                // RE-FORMATTED RESULT (TINANGGAL ANG WHEEL OF NAMES AT INAYOS ANG LISTAHAN)
-                const finalRealListText = [winner, ...finalFiltered]
-                    .map((user, index) => `${index === 0 ? '👑' : `\`[ ${index + 1} ]\``} **${user.username}** ${index === 0 ? '👈 WINNER!' : ''}`)
-                    .join("\n");
-
-                const winnerEmbed = new EmbedBuilder()
-                    .setTitle("🎉 GIVEAWAY ROULLETE WINNER! 🎉")
-                    .setDescription(
-                        `### 🏆 Ang mapalad na nanalo ng **${itemToGiveaway}**:\n🏆 **<@${winner.id}>** (${winner.username}) 🏆\n\n` +
-                        `📋 **Huling Resulta ng Listahan:**\n${finalRealListText}`
-                    )
-                    .setColor(0x57F287)
-                    .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
-                    .setFooter({ text: "Visual Roulette Completed! | Iyong Bot Official" });
-
-                // 🔄 MAG-ADD NG REROLL BUTTON SA ILALIM NG RESULTA
-                const rerollRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(REROLL_BUTTON_ID)
-                        .setLabel("Reroll 🔄")
-                        .setStyle(ButtonStyle.Danger)
-                );
-
-                const finalMessage = await interaction.editReply({ 
-                    content: `🏆 Congratulations <@${winner.id}>! Ikaw ang nanalo ng **${itemToGiveaway}**!`, 
-                    embeds: [winnerEmbed],
-                    files: [], 
-                    components: [rerollRow]
-                });
-
-                // 🛡️ SUB-COLLECTOR PARA SA REROLL BUTTON (HOST ONLY VALIDATION)
-                const rerollCollector = finalMessage.createMessageComponentCollector({
-                    componentType: ComponentType.Button,
-                    time: 300000 // Aktibo ang button sa loob ng 5 minuto pagkatapos ng laro
-                });
-
-                rerollCollector.on('collect', async (rerollInteraction) => {
-                    if (rerollInteraction.customId === REROLL_BUTTON_ID) {
-                        if (rerollInteraction.user.id !== hostId) {
-                            return await rerollInteraction.reply({ content: "❌ **Bawal makialam:** Ang Host lamang na nag-start ng giveaway ang pwedeng mag-click ng Reroll!", ephemeral: true });
-                        }
-                        
-                        await rerollInteraction.deferUpdate();
-                        rerollCollector.stop("reroll_triggered");
-                        
-                        // Patakbuhin ulit ang spin gamit ang parehong listahan ng nakaraang players!
-                        await runRouletteSpin(participantsList);
-                    }
-                });
+            for (let i = 0; i <= totalTicks; i++) {
+                const rot = (finalRot * (i / totalTicks)) + (Math.PI * 0.5);
+                const buf = await generateWheelImage(pList, rot);
+                await interaction.editReply({ files: [new AttachmentBuilder(buf, { name: 'wheel.png' })] });
+                await sleep(500);
             }
 
-            collector.on('end', async (collected, reason) => {
-                if (reason !== "start_pressed") {
-                    const timeoutEmbed = new EmbedBuilder()
-                        .setTitle("🎡 Roulette Cancelled")
-                        .setDescription("❌ Lumipas ang oras at hindi nasimulan ng host ang giveaway.")
-                        .setColor(0xED4245);
-                    return await interaction.editReply({ embeds: [timeoutEmbed], components: [], files: [] });
-                }
+            const winner = pList[winnerIdx];
+            const embed = new EmbedBuilder()
+                .setTitle("🎉 WINNER! 🎉").setColor(0x57F287)
+                .setDescription(`🏆 Nanalo ng **${item}**: <@${winner.id}>\n\n📋 **Listahan:**\n${pList.map((u, i) => `${i===0?'👑':`[${i+1}]`} **${u.username}** ${i===0?'👈':''}`).join('\n')}`)
+                .setImage('attachment://wheel.png').setThumbnail(winner.displayAvatarURL());
+            
+            if(img) embed.setThumbnail(img);
 
-                const participants = Array.from(participantsSet);
-
-                if (participants.length === 0) {
-                    const noParticipantsEmbed = new EmbedBuilder()
-                        .setTitle("🎡 Roulette Cancelled")
-                        .setDescription("❌ Walang pumindot ng Enter kaya hindi itinuloy ang pag-roll.")
-                        .setColor(0xED4245);
-                    return await interaction.editReply({ embeds: [noParticipantsEmbed], components: [], files: [] });
-                }
-
-                // Simulan ang unang pag-ikot
-                await runRouletteSpin(participants);
+            await interaction.editReply({
+                content: `Congratulations <@${winner.id}>!`,
+                embeds: [embed],
+                components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(REROLL_ID).setLabel("Reroll 🔄").setStyle(ButtonStyle.Danger))]
             });
-
-        } catch (error) {
-            console.error("Giveaway Canvas Roulette Error:", error);
         }
+
+        collector.on('collect', async (i) => {
+            if (i.customId === ENTER_ID) {
+                if ([...participants].some(u => u.id === i.user.id)) return i.reply({ ephemeral: true, content: "Kasali ka na!" });
+                participants.add(i.user);
+                await i.deferUpdate();
+                await interaction.editReply({ files: [new AttachmentBuilder(await generateWheelImage([...participants], 0), { name: 'wheel.png' })] });
+            } else if (i.customId === START_ID) {
+                if (i.user.id !== hostId) return i.reply({ ephemeral: true, content: "Host lang pwede!" });
+                await i.deferUpdate(); collector.stop();
+                await runSpin([...participants]);
+            } else if (i.customId === REROLL_ID) {
+                if (i.user.id !== hostId) return i.reply({ ephemeral: true, content: "Host lang pwede!" });
+                await i.deferUpdate();
+                await runSpin([...participants]);
+            }
+        });
     }
 };
