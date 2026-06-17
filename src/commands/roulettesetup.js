@@ -45,7 +45,11 @@ async function generateWheelImage(participantsList, currentRotation = 0) {
 }
 
 export default {
-    data: new SlashCommandBuilder().setName('roulettesetup').setDescription('Magsimula ng Roulette!').addStringOption(o => o.setName('item').setDescription('Premyo').setRequired(true)),
+    data: new SlashCommandBuilder()
+        .setName('roulettesetup')
+        .setDescription('Magsimula ng isang Event Roulette Giveaway!')
+        .addStringOption(o => o.setName('item').setDescription('Ano ang premyo?').setRequired(true)),
+
     async execute(interaction) {
         await interaction.deferReply();
         const item = interaction.options.getString('item');
@@ -56,24 +60,20 @@ export default {
             const buffer = await generateWheelImage([...participants], finalRotation);
             const attachment = new AttachmentBuilder(buffer, { name: `wheel_${Date.now()}.png` });
             
+            const desc = isFinal 
+                ? `🏆 Nanalo ng **${item}**: <@${winner.id}>` 
+                : `Click **"Enter"** para sumali!\n\n**Host:** <@${interaction.user.id}>\n**Participants:** ${participants.size}\n\n# ${item}`;
+
             const embed = new EmbedBuilder()
                 .setTitle(isFinal ? "🎉 WINNER!" : "🎉 GIVEAWAY CREATED")
                 .setColor(isFinal ? 0x57F287 : 0x5865F2)
                 .setImage(`attachment://${attachment.name}`)
-                // Dito natin inilalagay ang layout na gusto mo
-                .addFields(
-                    { name: 'Host', value: `<@${interaction.user.id}>`, inline: true },
-                    { name: 'Participants', value: `${participants.size}`, inline: true },
-                    { name: 'Item', value: `# ${item}`, inline: false } // Ang # ay nagbibigay ng highlight/big text
-                )
-                .setDescription(isFinal 
-                    ? `🏆 Nanalo ng **${item}**: <@${winner.id}>` 
-                    : `**Click "Enter" para sumali!**`);
+                .setDescription(desc);
 
             const components = isFinal ? [] : [
                 new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId(START_ID).setLabel("Start").setStyle(ButtonStyle.Success)
+                    new ButtonBuilder().setCustomId(START_ID).setLabel("Start Roulette 🚀").setStyle(ButtonStyle.Success)
                 )
             ];
 
@@ -82,25 +82,39 @@ export default {
 
         await updateMessage();
         const collector = interaction.channel.createMessageComponentCollector({ time: 600000 });
+
         collector.on('collect', async (i) => {
             if (i.customId === ENTER_ID) {
                 if ([...participants].some(u => u.id === i.user.id)) return i.reply({ ephemeral: true, content: "Kasali ka na!" });
-                participants.add(i.user); await i.deferUpdate(); await updateMessage();
+                participants.add(i.user);
+                await i.deferUpdate();
+                await updateMessage();
             } else if (i.customId === START_ID) {
+                if (i.user.id !== interaction.user.id) return i.reply({ ephemeral: true, content: "Host lang ang pwedeng mag-start!" });
+                if (participants.size === 0) return i.reply({ ephemeral: true, content: "Kailangan ng kahit isang participant!" });
+                
                 collector.stop();
                 const pList = [...participants];
                 const winnerIdx = Math.floor(Math.random() * pList.length);
+                const winner = pList[winnerIdx];
+
                 const sliceAngle = (2 * Math.PI) / pList.length;
-                const targetRotation = -(winnerIdx * sliceAngle) - (sliceAngle / 2) + (3 * 2 * Math.PI);
+                const offset = sliceAngle / 2;
+                const targetRotation = -(winnerIdx * sliceAngle) - offset + (3 * 2 * Math.PI);
 
                 for (let j = 0; j <= 10; j++) {
                     const currentRotation = targetRotation * (1 - Math.pow(1 - (j / 10), 3));
                     const buffer = await generateWheelImage(pList, currentRotation);
                     const attachment = new AttachmentBuilder(buffer, { name: `spin_${j}.png` });
-                    await interaction.editReply({ embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setImage(`attachment://spin_${j}.png`)], files: [attachment] });
+                    
+                    await interaction.editReply({
+                        embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setDescription("Ang gulong ay tumitigil na...").setImage(`attachment://spin_${j}.png`).setColor(0xFEE75C)],
+                        files: [attachment],
+                        components: []
+                    });
                     await sleep(1000);
                 }
-                await updateMessage(true, pList[winnerIdx], targetRotation);
+                await updateMessage(true, winner, targetRotation);
             }
         });
     }
