@@ -51,7 +51,7 @@ async function generateWheelImage(participantsList, currentRotation) {
         ctx.fillStyle = '#ff0000'; ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
         return canvas.toBuffer('image/png');
     } catch (err) { 
-        console.error("Canvas error caught:", err);
+        console.error("Canvas rendering failed:", err);
         return null; 
     }
 }
@@ -64,7 +64,6 @@ export default {
         .addAttachmentOption(o => o.setName('image').setDescription('Screenshot ng item (Optional)')),
 
     async execute(interaction) {
-        // SEGURIDAD: Instant response para hindi mag-timeout ang Discord application
         await interaction.deferReply();
 
         const hostId = interaction.user.id;
@@ -87,7 +86,6 @@ export default {
             initialEmbed.setImage(img); 
         }
 
-        // Ligtas na pagbuo ng panimulang imahe
         const initialBuffer = await generateWheelImage([], 0);
         const filesPayload = [];
 
@@ -108,19 +106,28 @@ export default {
         async function runSpin(pList) {
             if (pList.length === 0) return;
 
+            // INAYOS: Kumuha ng bagong kopya ng gulong bago mag-spin para iwas pagkawala ng image display
+            const currentWheelBuffer = await generateWheelImage(pList, 0);
+            const midFiles = [];
+            
             const countdownEmbed = new EmbedBuilder()
                 .setTitle("🎰 ROLLING THE WHEEL...")
                 .setDescription(`Item: **${item}**\n\n**Ang gulong ay umiikot na...**\nStatus: 🕒 Kinakalkula ang huling resulta...`)
                 .setColor(0xFEE75C);
                 
+            if (currentWheelBuffer) {
+                midFiles.push(new AttachmentBuilder(currentWheelBuffer, { name: 'wheel.png' }));
+                if (!img) countdownEmbed.setImage('attachment://wheel.png'); // Nananatiling visible ang roulette wheel!
+            }
             if (img) countdownEmbed.setThumbnail(img);
 
             await interaction.editReply({
                 embeds: [countdownEmbed],
                 components: [],
-                files: [] // Inalis pansamantala ang lumang attachment para iwas conflict
+                files: midFiles
             });
 
+            // Suspense freeze state bago ang grand reveal ng nanalo
             await sleep(2000); 
 
             const winnerIdx = Math.floor(Math.random() * pList.length);
@@ -171,12 +178,12 @@ export default {
                 const updateBuffer = await generateWheelImage([...participants], 0);
                 const enterFiles = [];
                 
+                const freshEmbed = EmbedBuilder.from(initialEmbed);
+
                 if (updateBuffer) {
                     enterFiles.push(new AttachmentBuilder(updateBuffer, { name: 'wheel.png' }));
+                    if (!img) freshEmbed.setImage('attachment://wheel.png'); // Naka-lock pa rin ang gulong dito kapag nadadagdagan ang sumasali
                 }
-
-                // Inayos para hindi magka-conflict sa pagbasa ng embed structure
-                const freshEmbed = EmbedBuilder.from(initialEmbed);
 
                 await interaction.editReply({ 
                     embeds: [freshEmbed],
@@ -193,3 +200,4 @@ export default {
         });
     }
 };
+        
