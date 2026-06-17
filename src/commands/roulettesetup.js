@@ -96,7 +96,7 @@ export default {
                 participants.add(i.user);
                 await i.deferUpdate();
                 await updateMessage();
-                        } else if (i.customId === START_ID) {
+            } else if (i.customId === START_ID) {
                 if (i.user.id !== interaction.user.id) return i.reply({ ephemeral: true, content: "Host lang pwede!" });
                 if (participants.size === 0) return i.reply({ ephemeral: true, content: "Walang participants!" });
                 
@@ -106,12 +106,11 @@ export default {
                 const winner = pList[winnerIdx];
 
                 const sliceAngle = (2 * Math.PI) / pList.length;
-                // Ito ang formula: kailangan nating i-rotate ang gulong 
-                // para ang slice ng winner ay mapunta sa 0 (right side pointer)
-                const sliceCenter = (winnerIdx * sliceAngle) + (sliceAngle / 2);
-                const targetRotation = -sliceCenter + (3 * 2 * Math.PI); 
+                // Offset na nagtatapat sa gitna ng slice sa pointer
+                const offset = sliceAngle / 2;
+                const targetRotation = -(winnerIdx * sliceAngle) - offset + (3 * 2 * Math.PI); 
 
-                const totalFrames = 10; // 10 frames na may 1-second delay = 10 seconds total
+                const totalFrames = 10;
                 for (let j = 0; j <= totalFrames; j++) {
                     const progress = j / totalFrames;
                     const easeOut = 1 - Math.pow(1 - progress, 3);
@@ -129,14 +128,11 @@ export default {
                         files: [attachment],
                         components: []
                     });
-                    
-                    // 1 second delay gaya ng gusto mo
-                    await sleep(1000); 
+                    await sleep(1000); // 1 second bawat frame
                 }
 
                 await updateMessage(true, winner);
             }
-
         });
     }
 };
