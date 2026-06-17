@@ -80,18 +80,17 @@ export default {
         const initialEmbed = new EmbedBuilder()
             .setTitle("🎉 GIVEAWAY STARTED!")
             .setDescription(`Item: **${item}**\nHost: <@${hostId}>`)
-            .setColor(0x5865F2);
+            .setColor(0x5865F2)
+            .setImage('attachment://wheel.png'); // Palaging malaking roleta ang makikita
 
-        if (img) {
-            initialEmbed.setImage(img); 
-        }
+        // Kung may item image, ginawa nating thumbnail (maliit sa gilid) para hindi matakpan ang roleta
+        if (img) initialEmbed.setThumbnail(img); 
 
         const initialBuffer = await generateWheelImage([], 0);
         const filesPayload = [];
 
         if (initialBuffer) {
             filesPayload.push(new AttachmentBuilder(initialBuffer, { name: 'wheel.png' }));
-            if (!img) initialEmbed.setImage('attachment://wheel.png');
         }
 
         let msg = await interaction.editReply({
@@ -106,20 +105,20 @@ export default {
         async function runSpin(pList) {
             if (pList.length === 0) return;
 
-            // INAYOS: Kumuha ng bagong kopya ng gulong bago mag-spin para iwas pagkawala ng image display
             const currentWheelBuffer = await generateWheelImage(pList, 0);
             const midFiles = [];
             
             const countdownEmbed = new EmbedBuilder()
                 .setTitle("🎰 ROLLING THE WHEEL...")
-                .setDescription(`Item: **${item}**\n\n**Ang gulong ay umiikot na...**\nStatus: 🕒 Kinakalkula ang huling resulta...`)
-                .setColor(0xFEE75C);
+                .setDescription(`Item: **${item}**\n\n**Ang gulong ay umiikot na...**\nStatus: 🕒 Kinakalkula ang resulta...`)
+                .setColor(0xFEE75C)
+                .setImage('attachment://wheel.png'); // Nananatiling visible si roleta habang naglo-load!
                 
+            if (img) countdownEmbed.setThumbnail(img);
+
             if (currentWheelBuffer) {
                 midFiles.push(new AttachmentBuilder(currentWheelBuffer, { name: 'wheel.png' }));
-                if (!img) countdownEmbed.setImage('attachment://wheel.png'); // Nananatiling visible ang roulette wheel!
             }
-            if (img) countdownEmbed.setThumbnail(img);
 
             await interaction.editReply({
                 embeds: [countdownEmbed],
@@ -127,7 +126,6 @@ export default {
                 files: midFiles
             });
 
-            // Suspense freeze state bago ang grand reveal ng nanalo
             await sleep(2000); 
 
             const winnerIdx = Math.floor(Math.random() * pList.length);
@@ -141,14 +139,13 @@ export default {
             const embed = new EmbedBuilder()
                 .setTitle("🎉 WINNER! 🎉").setColor(0x57F287)
                 .setDescription(`🏆 Nanalo ng **${item}**: <@${winner.id}>\n\n📋 **Listahan:**\n${pList.map((u, i) => `${i===winnerIdx?'👑':`[${i+1}]`} **${u.username}** ${i===winnerIdx?'👈':''}`).join('\n')}`)
-                .setThumbnail(winner.displayAvatarURL());
+                .setThumbnail(winner.displayAvatarURL()) // Pinalitan ng profile avatar ng nanalo ang maliit na thumbnail
+                .setImage('attachment://wheel.png'); // Huling pwesto ng nanalong roleta
 
             const finalFiles = [];
             if (buf) {
                 finalFiles.push(new AttachmentBuilder(buf, { name: 'wheel.png' }));
-                if (!img) embed.setImage('attachment://wheel.png');
             }
-            if (img) embed.setImage(img); 
 
             const finalMsg = await interaction.editReply({
                 content: `Congratulations <@${winner.id}>!`,
@@ -177,12 +174,10 @@ export default {
                 
                 const updateBuffer = await generateWheelImage([...participants], 0);
                 const enterFiles = [];
-                
                 const freshEmbed = EmbedBuilder.from(initialEmbed);
 
                 if (updateBuffer) {
                     enterFiles.push(new AttachmentBuilder(updateBuffer, { name: 'wheel.png' }));
-                    if (!img) freshEmbed.setImage('attachment://wheel.png'); // Naka-lock pa rin ang gulong dito kapag nadadagdagan ang sumasali
                 }
 
                 await interaction.editReply({ 
@@ -200,4 +195,3 @@ export default {
         });
     }
 };
-        
