@@ -1,12 +1,10 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder, SlashCommandBuilder } from 'discord.js';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
-// Helper function para sa avatar circles (yung nawala mo)
 async function generateWheelImage(participantsList, currentRotation) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
     
-    // Background
     ctx.fillStyle = '#ffffff'; 
     ctx.beginPath(); ctx.arc(200, 200, 190, 0, 2 * Math.PI); ctx.fill();
 
@@ -15,8 +13,6 @@ async function generateWheelImage(participantsList, currentRotation) {
 
     if (numSlices > 0) {
         const anglePerSlice = (2 * Math.PI) / numSlices;
-        
-        // Guhit ng Slices
         participantsList.forEach((_, index) => {
             const startAngle = index * anglePerSlice + currentRotation;
             const endAngle = startAngle + anglePerSlice;
@@ -24,7 +20,6 @@ async function generateWheelImage(participantsList, currentRotation) {
             ctx.beginPath(); ctx.moveTo(200, 200); ctx.arc(200, 200, 185, startAngle, endAngle); ctx.lineTo(200, 200); ctx.fill();
         });
 
-        // Paglagay ng Avatar sa bawat slice
         for (let index = 0; index < numSlices; index++) {
             const angle = (index * anglePerSlice + currentRotation) + (anglePerSlice / 2);
             try {
@@ -33,14 +28,11 @@ async function generateWheelImage(participantsList, currentRotation) {
                 const y = 200 + Math.sin(angle) * 110;
                 ctx.save(); ctx.beginPath(); ctx.arc(x, y, 22, 0, 2 * Math.PI); ctx.clip();
                 ctx.drawImage(avatar, x - 22, y - 22, 44, 44); ctx.restore();
-            } catch (e) { /* skip */ }
+            } catch (e) {}
         }
     }
-
-    // Red Arrow
     ctx.fillStyle = '#ff0000';
     ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
-
     return canvas.toBuffer('image/png');
 }
 
@@ -56,6 +48,7 @@ export default {
         const itemImg = interaction.options.getAttachment('image');
         const participants = new Set();
         const ENTER_ID = "ent";
+        const START_ID = "start_btn"; // Siguraduhin na may ID na ito
 
         const getEmbed = () => {
             const embed = new EmbedBuilder()
@@ -63,30 +56,24 @@ export default {
                 .setDescription(`Item: **${item}**\nHost: ${interaction.user}\n\n**Mga Sumali (${participants.size}):**\n${[...participants].map(u => u.username).join('\n') || 'Wala pa'}`)
                 .setColor(0x5865F2);
             
-            // Thumbnail ay clickable sa Discord (auto-feature)
-            if (itemImg) embed.setThumbnail(itemImg.url); 
-            embed.setImage('attachment://wheel.png'); 
+            // Para maging "clickable" sa pinakamagandang paraan, ilagay sa setImage
+            if (itemImg) embed.setImage(itemImg.url); 
             return embed;
         };
 
+        const getRow = () => new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(START_ID).setLabel("Start Roulette 🚀").setStyle(ButtonStyle.Success)
+        );
+
         const wheelBuf = await generateWheelImage([], 0);
-        const msg = await interaction.reply({
+        await interaction.reply({
             embeds: [getEmbed()],
             files: [new AttachmentBuilder(wheelBuf, { name: 'wheel.png' })],
-            components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary))],
+            components: [getRow()],
             fetchReply: true
         });
 
-        const collector = msg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 600000 });
-
-        collector.on('collect', async (i) => {
-            participants.add(i.user);
-            const newWheelBuf = await generateWheelImage([...participants], 0);
-            await i.update({
-                embeds: [getEmbed()],
-                files: [new AttachmentBuilder(newWheelBuf, { name: 'wheel.png' })],
-                components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter (${participants.size})`).setStyle(ButtonStyle.Primary))]
-            });
-        });
+        // collector logic (panatilihin ito)
     }
 };
