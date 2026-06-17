@@ -12,7 +12,7 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 🔥 PINAGANDANG CANVAS RENDERER: TINAKPAN NA AGAD ANG LUMANG IMAGE MULA SA PANIMULA
+// 🔥 SEGINURADONG CANVAS RENDERER: SENTRADO ANG TEXT KAYA LITAW ANG PANGALAN KAHIT SAAN
 async function generateWheelImage(usernameList, currentTimer) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
@@ -21,20 +21,17 @@ async function generateWheelImage(usernameList, currentTimer) {
         const wheelImageUrl = "https://cdn.discordapp.com/attachments/1065770284692558005/1516606427236401184/wheel.webp?ex=6a33414d&is=6a31efcd&hm=c95f39f936a6e07c00b590182ad17c41e059aa5a3d294912542307bc2a89ed1f&";
         const baseWheel = await loadImage(wheelImageUrl);
         
-        // I-draw ang base wheel para makuha ang anino at bilog na border
         ctx.drawImage(baseWheel, 0, 0, 400, 400);
 
         const activeNames = (usernameList || []).map(name => String(name).trim()).filter(name => name.length > 0);
 
-        // 1. KUNG WALANG SUMALI PA (INITIAL SETUP PANEL)
-        // Tatakpan agad ng malinis na solid Blurple color para burado ang lumang text na "iyong"
         if (activeNames.length === 0) {
-            ctx.fillStyle = '#5865F2'; // Discord Blurple
+            // Unang labas: Solid Blurple para tago ang dumi ng lumang asset
+            ctx.fillStyle = '#5865F2'; 
             ctx.beginPath();
             ctx.arc(200, 200, 185, 0, 2 * Math.PI);
             ctx.fill();
 
-            // Maglalagay ng malinis na text sa pinakagitna habang naghihintay
             ctx.save();
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 18px sans-serif';
@@ -43,9 +40,8 @@ async function generateWheelImage(usernameList, currentTimer) {
             ctx.fillText("Waiting for Players... 🎟️", 200, 200);
             ctx.restore();
         } 
-        // 2. KUNG MAY MGA KASALI NA (DUMATING NA ANG MGA SLICES)
         else {
-            // Kung 1 player pa lang, gumawa ng dummy slice para may hati ang gulong
+            // Kung 1 player lang, hahatiin sa dalawa para may magandang slices agad
             const displayNames = activeNames.length === 1 ? [activeNames[0], "Waiting... ⏳"] : activeNames;
 
             const numSlices = displayNames.length;
@@ -59,7 +55,7 @@ async function generateWheelImage(usernameList, currentTimer) {
                 const endAngle = startAngle + anglePerSlice;
                 const middleAngle = startAngle + (anglePerSlice / 2);
 
-                // Iguhit ang makulay na slice panel na nakatakip sa background
+                // 1. Iguhit ang slice panel block
                 ctx.fillStyle = sliceColors[index % sliceColors.length];
                 ctx.beginPath();
                 ctx.moveTo(200, 200);
@@ -67,34 +63,36 @@ async function generateWheelImage(usernameList, currentTimer) {
                 ctx.lineTo(200, 200);
                 ctx.fill();
 
-                // Puting border line sa bawat pagitan
+                // Puting guhit/border ng bawat slice
                 ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Isulat ang pangalan ng player sa loob ng slice nito
+                // 2. BAGONG TEXT ENGINE: Sentrado ang sulat sa katawan ng slice para hindi matakpan o mawala
                 ctx.save();
                 ctx.translate(200, 200);
+                // Idagdag ang Math.PI para bumaligtad ang text patungo sa tamang anggulo ng paningin kung kailangan
                 ctx.rotate(middleAngle);
                 
                 ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 16px sans-serif'; 
-                ctx.textAlign = 'right';
+                ctx.font = 'bold 14px sans-serif'; 
+                ctx.textAlign = 'center'; // Sentrado para ligtas
                 ctx.textBaseline = 'middle';
                 
-                const cleanName = name.substring(0, 8);
-                ctx.fillText(cleanName, 130, 0); 
+                // Ilalagay ang text sa radius 110 (gitnang-gitna ng kulay)
+                const cleanName = name.substring(0, 10);
+                ctx.fillText(cleanName, 110, 0); 
                 ctx.restore();
             });
 
-            // Re-draw ang gitnang puting bilog para maging malinis ang dulo ng mga linya
+            // Re-draw ang gitnang puting bilog
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
             ctx.arc(200, 200, 38, 0, 2 * Math.PI);
             ctx.fill();
         }
 
-        // 3. Pulang Arrow Pointer indicator sa kanang bahagi
+        // 3. Pulang Arrow Pointer indicator sa gilid
         ctx.fillStyle = '#ff0000';
         ctx.beginPath();
         ctx.moveTo(375, 200);
@@ -150,7 +148,6 @@ export default {
                 );
             };
 
-            // Unang labas: Malinis na agad at may nakatakip na solid color background
             const initialBuffer = await generateWheelImage([], 0);
             const initialAttachment = new AttachmentBuilder(initialBuffer, { name: 'rendered-wheel.png' });
 
@@ -165,7 +162,7 @@ export default {
                 )
                 .setImage('attachment://rendered-wheel.png')
                 .setColor(0x5865F2)
-                .setFooter({ text: "Iyong Bot Official | Anti-Glitched Canvas System" });
+                .setFooter({ text: "Iyong Bot Official | Absolute Text Overlay System" });
 
             const message = await interaction.reply({ 
                 embeds: [setupEmbed], 
@@ -187,6 +184,7 @@ export default {
                     participantsSet.add(btnInteraction.user);
                     await btnInteraction.deferUpdate();
                     
+                    // Kuhanin ang saktong string value ng username
                     const currentNames = Array.from(participantsSet).map(u => u.username);
                     const updatedBuffer = await generateWheelImage(currentNames, 0);
                     const updatedAttachment = new AttachmentBuilder(updatedBuffer, { name: 'rendered-wheel.png' });
@@ -225,7 +223,6 @@ export default {
                     return await interaction.editReply({ embeds: [noParticipantsEmbed], components: [], files: [] });
                 }
 
-                // 2. SHUFFLING & SPINNING OVERLAY ANIMATION PHASE
                 for (let i = spinDuration; i > 0; i--) {
                     const randomizedList = shuffleArray(participants);
                     const formattedListText = randomizedList
@@ -250,7 +247,6 @@ export default {
                     await sleep(1000); 
                 }
 
-                // 3. FINALIZATION AND WINNER CHOSEN
                 const winner = participants[Math.floor(Math.random() * participants.length)];
                 const encodedNames = participants.map(u => encodeURIComponent(u.username)).join(',');
                 const wheelBaseUrl = `https://wheelofnames.com/yvy-ukr?names=${encodedNames}`;
