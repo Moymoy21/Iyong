@@ -96,7 +96,7 @@ export default {
                 participants.add(i.user);
                 await i.deferUpdate();
                 await updateMessage();
-            } else if (i.customId === START_ID) {
+                        } else if (i.customId === START_ID) {
                 if (i.user.id !== interaction.user.id) return i.reply({ ephemeral: true, content: "Host lang pwede!" });
                 if (participants.size === 0) return i.reply({ ephemeral: true, content: "Walang participants!" });
                 
@@ -106,10 +106,12 @@ export default {
                 const winner = pList[winnerIdx];
 
                 const sliceAngle = (2 * Math.PI) / pList.length;
+                // Ito ang formula: kailangan nating i-rotate ang gulong 
+                // para ang slice ng winner ay mapunta sa 0 (right side pointer)
                 const sliceCenter = (winnerIdx * sliceAngle) + (sliceAngle / 2);
-                const targetRotation = -sliceCenter + (5 * 2 * Math.PI); 
+                const targetRotation = -sliceCenter + (3 * 2 * Math.PI); 
 
-                const totalFrames = 25;
+                const totalFrames = 10; // 10 frames na may 1-second delay = 10 seconds total
                 for (let j = 0; j <= totalFrames; j++) {
                     const progress = j / totalFrames;
                     const easeOut = 1 - Math.pow(1 - progress, 3);
@@ -121,17 +123,20 @@ export default {
                     await interaction.editReply({
                         embeds: [new EmbedBuilder()
                             .setTitle("🎰 ROLLING...")
-                            .setDescription(`Item: **${item}**\n\n**Ang gulong ay tumitigil na...**`)
+                            .setDescription(`Item: **${item}**\n\n**Tinatapik na ang swerte...**`)
                             .setImage(`attachment://spin_${j}.png`)
                             .setColor(0xFEE75C)],
                         files: [attachment],
                         components: []
                     });
-                    await sleep(100);
+                    
+                    // 1 second delay gaya ng gusto mo
+                    await sleep(1000); 
                 }
 
                 await updateMessage(true, winner);
             }
+
         });
     }
 };
