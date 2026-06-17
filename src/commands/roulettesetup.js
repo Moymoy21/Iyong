@@ -96,16 +96,23 @@ export default {
 
         collector.on('collect', async (i) => {
             if (i.customId === ENTER_ID) {
-                if ([...participants].some(u => u.id === i.user.id)) return i.reply({ ephemeral: true, content: "Kasali ka na!" });
-                participants.add(i.user);
-                
-                // Dito ang fix: Update ang embed (para sa counter) AT ang row (para sa button label)
-                await i.update({
-                    embeds: [getEmbed()],
-                    files: [new AttachmentBuilder(await generateWheelImage([...participants], 0), { name: 'wheel.png' })],
-                    components: [getRow()]
-                });
-            } else if (i.customId === START_ID) {
+    if ([...participants].some(u => u.id === i.user.id))
+        return i.reply({ ephemeral: true, content: "Kasali ka na!" });
+
+    participants.add(i.user);
+
+    await i.deferUpdate();
+
+    await interaction.editReply({
+        files: [
+            new AttachmentBuilder(
+                await generateWheelImage([...participants], 0),
+                { name: 'wheel.png' }
+            )
+        ],
+        components: [getRow()]
+    });
+} else if (i.customId === START_ID) {
                 if (i.user.id !== interaction.user.id) return i.reply({ ephemeral: true, content: "Host lang pwede!" });
                 await i.deferUpdate(); collector.stop();
                 await runSpin([...participants]);
