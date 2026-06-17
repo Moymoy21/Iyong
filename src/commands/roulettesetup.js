@@ -1,9 +1,12 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder, SlashCommandBuilder } from 'discord.js';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import GIFEncoder from 'gifencoder';
 
-// Helper function para sa canvas rendering context ng roleta
-async function drawWheelFrame(ctx, participantsList, currentRotation) {
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function generateWheelImage(participantsList, currentRotation) {
+    const canvas = createCanvas(400, 400);
+    const ctx = canvas.getContext('2d');
+
     try {
         const wheelImageUrl = "https://discordapp.com&";
         const baseWheel = await loadImage(wheelImageUrl);
@@ -46,53 +49,11 @@ async function drawWheelFrame(ctx, participantsList, currentRotation) {
         }
 
         ctx.fillStyle = '#ff0000'; ctx.beginPath(); ctx.moveTo(375, 200); ctx.lineTo(400, 180); ctx.lineTo(400, 220); ctx.closePath(); ctx.fill();
-    } catch (err) {
-        console.error(err);
+        return canvas.toBuffer('image/png');
+    } catch (err) { 
+        console.error("Canvas rendering failed:", err);
+        return null; 
     }
-}
-
-// Function para gumawa ng standalone PNG block para sa registration view
-async function generateWheelImage(participantsList, currentRotation) {
-    const canvas = createCanvas(400, 400);
-    const ctx = canvas.getContext('2d');
-    await drawWheelFrame(ctx, participantsList, currentRotation);
-    return canvas.toBuffer('image/png');
-}
-
-// Gumagawa ng animated GIF file ng pag-roll ng roleta
-async function generateAnimatedWheelGif(pList, winnerIdx) {
-    const encoder = new GIFEncoder(400, 400);
-    encoder.start();
-    encoder.setRepeat(0);   // Loop configuration
-    encoder.setDelay(80);   // Frame speed tick (ms)
-    encoder.setQuality(10); // Code image quality process ratio
-
-    const canvas = createCanvas(400, 400);
-    const ctx = canvas.getContext('2d');
-
-    const sliceAngle = (2 * Math.PI) / pList.length;
-    // Pinuwersa ang huling rotation value na tumigil sa nanalong index slot sa may arrow tracker
-    const finalRot = (winnerIdx * -sliceAngle) + (Math.PI * 2);
-    const totalFrames = 22; 
-
-    for (let i = 0; i <= totalFrames; i++) {
-        const t = i / totalFrames;
-        // Cubic Ease Out formula para bumagal ang ikot sa huli
-        const easeOutCubic = 1 - Math.pow(1 - t, 3);
-        const currentRot = (finalRot * easeOutCubic) + (Math.PI * 0.5);
-        
-        ctx.clearRect(0, 0, 400, 400);
-        await drawWheelFrame(ctx, pList, currentRot);
-        encoder.addFrame(ctx);
-    }
-
-    // Freeze delay buffer para hindi biglang mag-loop back ang animation sa simula
-    for (let i = 0; i < 15; i++) {
-        encoder.addFrame(ctx);
-    }
-
-    encoder.finish();
-    return encoder.out.getData();
 }
 
 export default {
@@ -103,6 +64,8 @@ export default {
         .addAttachmentOption(o => o.setName('image').setDescription('Screenshot ng item (Optional)')),
 
     async execute(interaction) {
+        await interaction.deferReply();
+
         const hostId = interaction.user.id;
         const item = interaction.options.getString('item');
         const img = interaction.options.getAttachment('image')?.url || null;
@@ -114,10 +77,28 @@ export default {
             new ButtonBuilder().setCustomId(START_ID).setLabel("Start Roulette 🚀").setStyle(ButtonStyle.Success)
         );
 
-        let msg = await interaction.reply({
-            embeds: [new EmbedBuilder().setTitle("🎉 GIVEAWAY STARTED!").setDescription(`Item: **${item}**\nHost: <@${hostId}>`).setImage('attachment://wheel.png').setThumbnail(img).setColor(0x5865F2)],
-            files: [new AttachmentBuilder(await generateWheelImage([], 0), { name: 'wheel.png' })],
-            components: [getRow()], fetchReply: true
+        const initialEmbed = new EmbedBuilder()
+            .setTitle("🎉 GIVEAWAY STARTED!")
+            .setDescription(`Item: **${item}**\nHost: <@${hostId}>`)
+            .setColor(0x5865F2);
+
+        if (img) {
+            initialEmbed.setImage(img); 
+        }
+
+        const initialBuffer = await generateWheelImage([], 0);
+        const filesPayload = [];
+
+        if (initialBuffer) {
+            filesPayload.push(new AttachmentBuilder(initialBuffer, { name: 'wheel.png' }));
+            if (!img) initialEmbed.setImage('attachment://wheel.png');
+        }
+
+        let msg = await interaction.editReply({
+            embeds: [initialEmbed],
+            files: filesPayload,
+            components: [getRow()],
+            fetchReply: true
         });
 
         const collector = msg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 600000 });
@@ -125,36 +106,54 @@ export default {
         async function runSpin(pList) {
             if (pList.length === 0) return;
 
-            // Loading layout screen para may temporary status update bago lumabas ang GIF rendering stream
-            const loadingEmbed = new EmbedBuilder()
-                .setTitle("🎰 GENERATING ROULETTE...")
-                .setDescription(`Item: **${item}**\n\nInihahanda ang mahiwagang gulong para sa ${pList.length} na kasali...`)
+            // INAYOS: Kumuha ng bagong kopya ng gulong bago mag-spin para iwas pagkawala ng image display
+            const currentWheelBuffer = await generateWheelImage(pList, 0);
+            const midFiles = [];
+            
+            const countdownEmbed = new EmbedBuilder()
+                .setTitle("🎰 ROLLING THE WHEEL...")
+                .setDescription(`Item: **${item}**\n\n**Ang gulong ay umiikot na...**\nStatus: 🕒 Kinakalkula ang huling resulta...`)
                 .setColor(0xFEE75C);
                 
-            if(img) loadingEmbed.setThumbnail(img);
+            if (currentWheelBuffer) {
+                midFiles.push(new AttachmentBuilder(currentWheelBuffer, { name: 'wheel.png' }));
+                if (!img) countdownEmbed.setImage('attachment://wheel.png'); // Nananatiling visible ang roulette wheel!
+            }
+            if (img) countdownEmbed.setThumbnail(img);
 
             await interaction.editReply({
-                embeds: [loadingEmbed],
+                embeds: [countdownEmbed],
                 components: [],
-                files: []
+                files: midFiles
             });
 
-            const winnerIdx = Math.floor(Math.random() * pList.length);
-            const gifBuffer = await generateAnimatedWheelGif(pList, winnerIdx);
-            const winner = pList[winnerIdx];
+            // Suspense freeze state bago ang grand reveal ng nanalo
+            await sleep(2000); 
 
+            const winnerIdx = Math.floor(Math.random() * pList.length);
+            const sliceAngle = (2 * Math.PI) / pList.length;
+            const randomOffset = Math.random() * sliceAngle;
+            const targetRotation = (winnerIdx * -sliceAngle) - randomOffset + (Math.PI * 0.5);
+            
+            const buf = await generateWheelImage(pList, targetRotation);
+            const winner = pList[winnerIdx];
+            
             const embed = new EmbedBuilder()
                 .setTitle("🎉 WINNER! 🎉").setColor(0x57F287)
                 .setDescription(`🏆 Nanalo ng **${item}**: <@${winner.id}>\n\n📋 **Listahan:**\n${pList.map((u, i) => `${i===winnerIdx?'👑':`[${i+1}]`} **${u.username}** ${i===winnerIdx?'👈':''}`).join('\n')}`)
-                .setImage('attachment://wheel.gif'); // Naka-link na ngayon sa animated buffer stream
-            
-            if(img) embed.setThumbnail(img);
-            else embed.setThumbnail(winner.displayAvatarURL());
+                .setThumbnail(winner.displayAvatarURL());
+
+            const finalFiles = [];
+            if (buf) {
+                finalFiles.push(new AttachmentBuilder(buf, { name: 'wheel.png' }));
+                if (!img) embed.setImage('attachment://wheel.png');
+            }
+            if (img) embed.setImage(img); 
 
             const finalMsg = await interaction.editReply({
                 content: `Congratulations <@${winner.id}>!`,
                 embeds: [embed],
-                files: [new AttachmentBuilder(gifBuffer, { name: 'wheel.gif' })],
+                files: finalFiles,
                 components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(REROLL_ID).setLabel("Reroll 🔄").setStyle(ButtonStyle.Danger))]
             });
 
@@ -176,8 +175,19 @@ export default {
                 participants.add(i.user);
                 await i.deferUpdate();
                 
+                const updateBuffer = await generateWheelImage([...participants], 0);
+                const enterFiles = [];
+                
+                const freshEmbed = EmbedBuilder.from(initialEmbed);
+
+                if (updateBuffer) {
+                    enterFiles.push(new AttachmentBuilder(updateBuffer, { name: 'wheel.png' }));
+                    if (!img) freshEmbed.setImage('attachment://wheel.png'); // Naka-lock pa rin ang gulong dito kapag nadadagdagan ang sumasali
+                }
+
                 await interaction.editReply({ 
-                    files: [new AttachmentBuilder(await generateWheelImage([...participants], 0), { name: 'wheel.png' })],
+                    embeds: [freshEmbed],
+                    files: enterFiles,
                     components: [getRow()] 
                 });
             } else if (i.customId === START_ID) {
@@ -190,4 +200,4 @@ export default {
         });
     }
 };
-                                                                                                                                           
+        
