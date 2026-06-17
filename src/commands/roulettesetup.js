@@ -12,8 +12,8 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 🔥 ULTRA-SAFE CANVAS GENERATOR: AYOS ANG HATI AT COMPATIBLE SA RAILWAY
-async function generateWheelImage(usernameList, currentTimer) {
+// 🎨 AVATAR OVERLAY ENGINE: Walang font kaya walang sasalansang na error sa Railway!
+async function generateWheelImage(participantsList, currentTimer) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
 
@@ -23,43 +23,56 @@ async function generateWheelImage(usernameList, currentTimer) {
         
         ctx.drawImage(baseWheel, 0, 0, 400, 400);
 
-        const activeNames = (usernameList || []).map(name => String(name).trim()).filter(name => name.length > 0);
+        const activeUsers = participantsList || [];
 
-        // KASO A: Walang sumali pa (Initial State)
-        if (activeNames.length === 0) {
-            ctx.fillStyle = '#5865F2'; // Solid Blue
+        // CASE A: Walang sumali pa
+        if (activeUsers.length === 0) {
+            ctx.fillStyle = '#5865F2'; 
             ctx.beginPath();
             ctx.arc(200, 200, 185, 0, 2 * Math.PI);
             ctx.fill();
         } 
-        // KASO B: 1 Player lang ang sumali (ISANG BUONG SOLID COLOR - WALANG HATI!)
-        else if (activeNames.length === 1) {
-            ctx.fillStyle = '#57F287'; // Solid Green para sa nag-iisang player
+        // CASE B: 1 Player lang ang kasali (Solid Color + PFP sa gitna)
+        else if (activeUsers.length === 1) {
+            const singleUser = activeUsers[0];
+            ctx.fillStyle = '#57F287'; // Solid Green tulad ng nakita mo
             ctx.beginPath();
             ctx.arc(200, 200, 185, 0, 2 * Math.PI);
             ctx.fill();
 
-            // Ligtas na Text Fallback para sa Linux/Railway
-            ctx.save();
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 20px sans-serif'; 
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            // Kung ayaw lumabas ng text dahil sa font bug, may embed list naman sa labas para makita ang pangalan mo
-            ctx.fillText(activeNames[0].substring(0, 10), 200, 200);
-            ctx.restore();
+            // I-overlay ang Discord Profile Picture ng nag-iisang player sa gitna
+            try {
+                const avatarUrl = singleUser.displayAvatarURL({ extension: 'png', size: 128 });
+                const avatarImg = await loadImage(avatarUrl);
+                
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(200, 200, 50, 0, 2 * Math.PI);
+                ctx.clip();
+                ctx.drawImage(avatarImg, 150, 150, 100, 100);
+                ctx.restore();
+
+                // Pabilog na border para sa avatar
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(200, 200, 50, 0, 2 * Math.PI);
+                ctx.stroke();
+            } catch (e) {
+                console.error("Hindi ma-load ang single avatar:", e);
+            }
         } 
-        // KASO C: 2 o higit pang players (Dito na hahatiin nang perpekto ang gulong!)
+        // CASE C: Mas marami sa dalawa (Hahatiin ang slices at lalagyan ng kani-kanilang PFP)
         else {
-            const numSlices = activeNames.length;
+            const numSlices = activeUsers.length;
             const anglePerSlice = (2 * Math.PI) / numSlices;
             const rotationOffset = currentTimer * 0.8; 
             const sliceColors = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3498DB', '#9B59B6', '#1ABC9C'];
 
-            activeNames.forEach((name, index) => {
+            // Una, iguhit ang lahat ng kulay na panels
+            activeUsers.forEach((user, index) => {
                 const startAngle = index * anglePerSlice + rotationOffset;
                 const endAngle = startAngle + anglePerSlice;
-                const middleAngle = startAngle + (anglePerSlice / 2);
 
                 ctx.fillStyle = sliceColors[index % sliceColors.length];
                 ctx.beginPath();
@@ -71,29 +84,48 @@ async function generateWheelImage(usernameList, currentTimer) {
                 ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = 2;
                 ctx.stroke();
-
-                // Isulat ang pangalan ng player sa gitna ng hiwa
-                ctx.save();
-                ctx.translate(200, 200);
-                ctx.rotate(middleAngle);
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 14px sans-serif'; 
-                ctx.textAlign = 'center'; 
-                ctx.textBaseline = 'middle';
-                ctx.fillText(name.substring(0, 10), 110, 0); 
-                ctx.restore();
             });
-        }
 
-        // Gitnang puting cover circle (Awtomatikong nakapatong)
-        if (activeNames.length > 1) {
+            // Pangalawa, i-paste ang Profile Pictures ng bawat player sa kanilang nakalaang slice slot
+            for (let index = 0; index < activeUsers.length; index++) {
+                const user = activeUsers[index];
+                const startAngle = index * anglePerSlice + rotationOffset;
+                const middleAngle = startAngle + (anglePerSlice / 2);
+
+                try {
+                    const avatarUrl = user.displayAvatarURL({ extension: 'png', size: 64 });
+                    const avatarImg = await loadImage(avatarUrl);
+
+                    // Kalkulahin ang pwesto kung saan ipapatong ang larawan sa loob ng slice band (Radius 110)
+                    const imgX = 200 + Math.cos(middleAngle) * 110;
+                    const imgY = 200 + Math.sin(middleAngle) * 110;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(imgX, imgY, 22, 0, 2 * Math.PI);
+                    ctx.clip();
+                    ctx.drawImage(avatarImg, imgX - 22, imgY - 22, 44, 44);
+                    ctx.restore();
+
+                    // Puting pabilog na border para sa bawat maliit na avatar
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(imgX, imgY, 22, 0, 2 * Math.PI);
+                    ctx.stroke();
+                } catch (imgErr) {
+                    console.error("Error drawing slot user avatar:", imgErr);
+                }
+            }
+
+            // Gitnang puting cover ring
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
             ctx.arc(200, 200, 38, 0, 2 * Math.PI);
             ctx.fill();
         }
 
-        // Pulang Arrow Pointer indicator sa gilid
+        // Kanang pulang tagaturo ng panalo
         ctx.fillStyle = '#ff0000';
         ctx.beginPath();
         ctx.moveTo(375, 200);
@@ -163,7 +195,7 @@ export default {
                 )
                 .setImage('attachment://rendered-wheel.png')
                 .setColor(0x5865F2)
-                .setFooter({ text: "Iyong Bot Official | Absolute Geometry Engine" });
+                .setFooter({ text: "Iyong Bot Official | Avatar Overlay Visual System" });
 
             const message = await interaction.reply({ 
                 embeds: [setupEmbed], 
@@ -179,19 +211,17 @@ export default {
 
             collector.on('collect', async (btnInteraction) => {
                 if (btnInteraction.customId === ENTER_BUTTON_ID) {
-                    // Mas tumpak na pagsuri ng ID para iwas double-entry
                     if (Array.from(participantsSet).some(u => u.id === btnInteraction.user.id)) {
                         return await btnInteraction.reply({ content: "❌ Kasali ka na sa laro!", ephemeral: true });
                     }
                     participantsSet.add(btnInteraction.user);
                     await btnInteraction.deferUpdate();
                     
-                    const currentNames = Array.from(participantsSet).map(u => u.username);
-                    const updatedBuffer = await generateWheelImage(currentNames, 0);
+                    const participantsList = Array.from(participantsSet);
+                    const updatedBuffer = await generateWheelImage(participantsList, 0);
                     const updatedAttachment = new AttachmentBuilder(updatedBuffer, { name: 'rendered-wheel.png' });
                     
-                    // Laging gumagawa ng sariwang embed para updated ang listahan ng pangalan sa Discord chat text
-                    const currentListText = currentNames.map((name, i) => `\`[ ${i + 1} ]\` **${name}**`).join('\n');
+                    const currentListText = participantsList.map((user, i) => `\`[ ${i + 1} ]\` **${user.username}**`).join('\n');
                     const updatedEmbed = EmbedBuilder.from(setupEmbed)
                         .setDescription(
                             `🎁 **Items to Giveaway:** \`${itemToGiveaway}\`\n` +
@@ -243,12 +273,11 @@ export default {
                         .map((user, index) => `\`[ ${index + 1} ]\` **${user.username}**`)
                         .join("\n");
 
-                    const rollingNames = randomizedList.map(u => u.username);
-                    const rollingBuffer = await generateWheelImage(rollingNames, i);
+                    const rollingBuffer = await generateWheelImage(randomizedList, i);
                     const rollingAttachment = new AttachmentBuilder(rollingBuffer, { name: 'rendered-wheel.png' });
 
                     const shuffleEmbed = new EmbedBuilder()
-                        .setTitle("🎰 Umiikot na ang Gulong kasama ang mga Pangalan! 🎰")
+                        .setTitle("🎰 Umiikot na ang Gulong kasama ang mga Avatar! 🎰")
                         .setDescription(
                             `🎁 **Item:** \`${itemToGiveaway}\`\n` +
                             `⏳ **Humihinto na sa loob ng:** \`${i}s\`\n\n` +
