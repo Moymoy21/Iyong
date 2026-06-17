@@ -15,7 +15,7 @@ function shuffleArray(array) {
 export default {
     data: {
         name: 'roulettesetup',
-        description: 'Magsimula ng isang Event Roulette na may gumagalaw na gulong at text shuffle!',
+        description: 'Magsimula ng isang Event Roulette na may swabeng shuffling effect!',
         toJSON() {
             return { name: this.name, description: this.description };
         }
@@ -24,8 +24,6 @@ export default {
     async execute(interaction) {
         try {
             const hostId = interaction.user.id;
-            
-            // Patas na laban: Hindi awtomatikong kasali ang Host
             const participantsSet = new Set();
 
             const JOIN_BUTTON_ID = "roulette_join_btn";
@@ -101,7 +99,7 @@ export default {
                     return await interaction.editReply({ embeds: [noParticipantsEmbed], components: [] });
                 }
 
-                // I-inject ang ibinigay mong CDN link gamit ang AttachmentBuilder para maging 100% stable
+                // Gagamitin natin bilang maliit na animated icon sa gilid para hindi mag-flicker ang screen
                 const wheelImageUrl = "https://cdn.discordapp.com/attachments/1065770284692558005/1516606427236401184/wheel.webp?ex=6a33414d&is=6a31efcd&hm=c95f39f936a6e07c00b590182ad17c41e059aa5a3d294912542307bc2a89ed1f&";
                 const wheelAttachment = new AttachmentBuilder(wheelImageUrl, { name: 'spinning-wheel.webp' });
 
@@ -121,15 +119,14 @@ export default {
                     const shuffleEmbed = new EmbedBuilder()
                         .setTitle(`${currentAnim} Ang Gulong ay Umiikot Na! ${currentAnim}`)
                         .setDescription(
-                            `### ⏳ Bumabagal na ang gulong sa loob ng: \`${i}s\`\n\n` +
+                            `⏳ **Humihinto sa loob ng:** \`${i}s\`\n\n` +
                             `⚡ **Kasalukuyang Shuffling ng mga Pangalan:**\n${formattedListText}\n\n` +
-                            `*Ang pangalang hihinto sa Unang Pwesto [ 1 ] pagkatapos ng timer ang siyang Winner!*`
+                            `*Ang pangalang hihinto sa Unang Pwesto [ 1 ] ang siyang mananalong Winner!*`
                         )
-                        .setImage('attachment://spinning-wheel.webp') // Dito ipapakita ang gulong habang nag-o-roll!
+                        .setThumbnail('attachment://spinning-wheel.webp') // Ginawang THUMBNAIL para hindi mag-blink ang buong embed!
                         .setColor(0xFEE75C)
                         .setFooter({ text: "Tinitimbang na ang kapalaran ng bawat isa... | Iyong Bot Official" });
 
-                    // I-edit ang reply kasama ang embed at image attachment
                     await interaction.editReply({ embeds: [shuffleEmbed], files: [wheelAttachment], components: [] });
                     await sleep(1000); 
                 }
@@ -137,7 +134,6 @@ export default {
                 // 3. Pagpili ng Totoong Winner
                 const winner = participants[Math.floor(Math.random() * participants.length)];
                 
-                // Idugtong ang listahan sa iyong custom empty wheelofnames shortcut templates
                 const encodedNames = participants.map(u => encodeURIComponent(u.username)).join(',');
                 const wheelBaseUrl = `https://wheelofnames.com/yvy-ukr?names=${encodedNames}`;
 
@@ -159,7 +155,6 @@ export default {
                     .setThumbnail(winner.displayAvatarURL({ dynamic: true }))
                     .setFooter({ text: "Visual Roulette Completed! | wheelofnames.com" });
 
-                // Tanggalin ang files array sa dulo para mawala na ang umiikot na gulong at palitan ng winner avatar
                 return await interaction.editReply({ 
                     content: `🏆 Congratulations <@${winner.id}>! Ikaw ang nanalo sa Wheel of Names!`, 
                     embeds: [winnerEmbed],
