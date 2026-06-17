@@ -3,7 +3,6 @@ import { createCanvas, loadImage } from '@napi-rs/canvas';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Function para i-shuffle ang listahan
 function shuffleArray(array) {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -13,65 +12,76 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 🔥 FUNCTION PARA I-DRAW ANG MGA PANGALAN SA IBABAW NG LARAWAN NG GULONG
-async function generateWheelImage(participants, currentTimer) {
-    // Gumawa ng canvas na may sukat na 400x400 pixels
+// 🔥 NAAYOS NA CANVAS RENDERER: GUMAGANA KAHIT SA LINUX/RAILWAY SERVER
+async function generateWheelImage(usernameList, currentTimer) {
     const canvas = createCanvas(400, 400);
     const ctx = canvas.getContext('2d');
 
     try {
-        // I-load ang iyong empty wheel asset link mula sa Discord CDN
         const wheelImageUrl = "https://cdn.discordapp.com/attachments/1065770284692558005/1516606427236401184/wheel.webp?ex=6a33414d&is=6a31efcd&hm=c95f39f936a6e07c00b590182ad17c41e059aa5a3d294912542307bc2a89ed1f&";
         const baseWheel = await loadImage(wheelImageUrl);
         
-        // I-draw ang background wheel mo
         ctx.drawImage(baseWheel, 0, 0, 400, 400);
 
-        if (participants.length > 0) {
-            const numSlices = participants.length;
+        // Siguraduhing may laman ang listahan bago mag-slice
+        if (usernameList && usernameList.length > 0) {
+            const numSlices = usernameList.length;
             const anglePerSlice = (2 * Math.PI) / numSlices;
             
-            // Magdagdag ng kaunting rotation base sa natitirang oras para magmukhang umiikot ang mga pangalan!
-            const rotationOffset = currentTimer * 0.5; 
+            // Paikutin ang posisyon base sa timer countdown para gumalaw ang mga pangalan
+            const rotationOffset = currentTimer * 0.7; 
 
-            participants.forEach((user, index) => {
+            // Kulay para sa bawat slice para maging kaakit-akit tingnan (Selyadong Discord Palette)
+            const sliceColors = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3498DB', '#9B59B6', '#1ABC9C'];
+
+            usernameList.forEach((username, index) => {
                 const startAngle = index * anglePerSlice + rotationOffset;
                 const endAngle = startAngle + anglePerSlice;
                 const middleAngle = startAngle + (anglePerSlice / 2);
 
-                // 1. Gumuhit ng mga lines/slices para hatiin ang gulong na parang pizza
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
+                // 1. I-draw ang pizza slice block para takpan ang lumang background text
+                ctx.fillStyle = sliceColors[index % sliceColors.length];
                 ctx.beginPath();
                 ctx.moveTo(200, 200);
-                ctx.arc(200, 200, 180, startAngle, endAngle);
+                ctx.arc(200, 200, 182, startAngle, endAngle); // Bahagyang nilakihan para takpan ang gilid
                 ctx.lineTo(200, 200);
+                ctx.fill();
+
+                // Itim o puting border para sa bawat hiwa ng gulong
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
 
-                // 2. I-patong ang Pangalan ng User sa loob ng slice nito
+                // 2. Isulat ang pangalan sa ibabaw ng slice
                 ctx.save();
                 ctx.translate(200, 200);
                 ctx.rotate(middleAngle);
                 
-                // Kulay at font ng nakapatong na text
                 ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 14px Arial';
+                // Ginamit ang 'sans-serif' para suportado ng kahit anong operating system ng Railway
+                ctx.font = 'bold 15px sans-serif'; 
                 ctx.textAlign = 'right';
                 ctx.textBaseline = 'middle';
                 
-                // Limitahan ang haba ng username para kasya sa loob ng bilog
-                const displayName = user.username.substring(0, 10);
-                ctx.fillText(displayName, 160, 0);
+                // Kunin lang ang unang 9 characters para laging kasya sa space
+                const safeName = String(username).substring(0, 9);
+                ctx.fillText(safeName, 165, 0);
                 ctx.restore();
             });
+
+            // Re-draw ang gitnang puting bilog para malinis tingnan ang pinagmulan ng mga linya
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(200, 200, 36, 0, 2 * Math.PI);
+            ctx.fill();
         }
 
-        // 3. Gumuhit ng Arrow Pointer sa kanang bahagi gaya ng nakagawian
+        // 3. Arrow Indicator sa kanang bahagi
         ctx.fillStyle = '#ff0000';
         ctx.beginPath();
         ctx.moveTo(380, 200);
-        ctx.lineTo(400, 185);
-        ctx.lineTo(400, 215);
+        ctx.lineTo(400, 182);
+        ctx.lineTo(400, 218);
         ctx.closePath();
         ctx.fill();
 
@@ -85,7 +95,7 @@ async function generateWheelImage(participants, currentTimer) {
 export default {
     data: new SlashCommandBuilder()
         .setName('roulettesetup')
-        .setDescription('Magsimula ng isang Event Roulette Giveaway na may totoong text overlay!')
+        .setDescription('Magsimula ng isang Event Roulette Giveaway na may selyadong text overlay!')
         .addStringOption(option => 
             option.setName('item')
                 .setDescription('Ano ang ipamimigay mong item?')
@@ -103,6 +113,7 @@ export default {
             const itemToGiveaway = interaction.options.getString('item');
             const spinDuration = interaction.options.getInteger('duration') || 10; 
             
+            // Dito natin ise-save ang mga Discord User objects
             const participantsSet = new Set();
 
             const ENTER_BUTTON_ID = "roulette_enter_btn";
@@ -122,7 +133,7 @@ export default {
                 );
             };
 
-            // Unang labas na blangkong larawan para sa panel setup
+            // Unang load: Blangkong larawan pa
             const initialBuffer = await generateWheelImage([], 0);
             const initialAttachment = new AttachmentBuilder(initialBuffer, { name: 'rendered-wheel.png' });
 
@@ -159,8 +170,9 @@ export default {
                     participantsSet.add(btnInteraction.user);
                     await btnInteraction.deferUpdate();
                     
-                    // Kapag may sumali, ire-render ulit ang imahe para pumatong agad ang pangalan niya sa wheel!
-                    const updatedBuffer = await generateWheelImage(Array.from(participantsSet), 0);
+                    // Kukunin natin ang mga usernames para sa pag-render ng canvas
+                    const currentNames = Array.from(participantsSet).map(u => u.username);
+                    const updatedBuffer = await generateWheelImage(currentNames, 0);
                     const updatedAttachment = new AttachmentBuilder(updatedBuffer, { name: 'rendered-wheel.png' });
                     
                     await interaction.editReply({ 
@@ -204,8 +216,9 @@ export default {
                         .map((user, index) => `\`[ ${index + 1} ]\` **${user.username}**`)
                         .join("\n");
 
-                    // Bawat segundo, gagawa ng bagong frame ng larawan kung saan nandoon ang mga pangalan na umiikot!
-                    const rollingBuffer = await generateWheelImage(randomizedList, i);
+                    // I-shuffle din ang mga pangalan sa visual wheel bawat segundo
+                    const rollingNames = randomizedList.map(u => u.username);
+                    const rollingBuffer = await generateWheelImage(rollingNames, i);
                     const rollingAttachment = new AttachmentBuilder(rollingBuffer, { name: 'rendered-wheel.png' });
 
                     const shuffleEmbed = new EmbedBuilder()
@@ -257,4 +270,3 @@ export default {
         }
     }
 };
-                        
