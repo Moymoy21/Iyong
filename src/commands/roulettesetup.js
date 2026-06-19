@@ -58,7 +58,8 @@ export default {
             const attachment = new AttachmentBuilder(buffer, { name: `w.png` });
             
             const pList = [...participants];
-            const participantList = pList.length > 0 ? pList.map(u => `• ${u.username}`).join('\n') : "Wala pa.";
+            // DITO PINALITAN: Ginamit ang <@${u.id}> para mention imbes na username
+            const participantList = pList.length > 0 ? pList.map(u => `• <@${u.id}>`).join('\n') : "Wala pa.";
             
             const embed = new EmbedBuilder()
                 .setTitle(isFinal ? "Giveaway Winner" : "🎉 GIVEAWAY CREATED")
@@ -90,7 +91,6 @@ export default {
             } else if (i.customId === START_ID || i.customId === REROLL_ID) {
                 if (i.user.id !== interaction.user.id) return i.reply({ephemeral: true, content: "Host lang ang pwedeng mag-start!"});
                 
-                // Reroll time limit check
                 if (i.customId === REROLL_ID && lastWinTime && (Date.now() - lastWinTime > 25 * 60000)) {
                     return i.reply({ephemeral: true, content: "Giveaway ended!"});
                 }
@@ -98,7 +98,7 @@ export default {
                 const pList = [...participants];
                 if (pList.length === 0) return i.reply({ephemeral: true, content: "Walang participants!"});
 
-                await i.deferUpdate(); // Iwas "Interaction failed"
+                await i.deferUpdate(); 
 
                 const winnerIdx = Math.floor(Math.random() * pList.length);
                 winner = pList[winnerIdx];
