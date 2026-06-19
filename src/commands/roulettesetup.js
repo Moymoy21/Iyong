@@ -50,23 +50,21 @@ export default {
         await interaction.deferReply();
         const item = interaction.options.getString('item');
         const participants = new Set();
-        const ENTER_ID = "ent", START_ID = "str", REROLL_ID = "rr";
-        let winner = null, lastWinTime = null, finalRotation = 0;
+        const ENTER_ID = "ent", START_ID = "str", REROLL_ID = "rr", CLAIM_ID = "clm";
+        let winner = null, finalRotation = 0, isClaimed = false;
 
         async function updateMessage(isFinal = false) {
             const buffer = await generateWheelImage([...participants], finalRotation);
             const attachment = new AttachmentBuilder(buffer, { name: `w.png` });
-            
             const pList = [...participants];
-            // DITO PINALITAN: Ginamit ang <@${u.id}> para mention imbes na username
             const participantList = pList.length > 0 ? pList.map(u => `• <@${u.id}>`).join('\n') : "Wala pa.";
             
             const embed = new EmbedBuilder()
-                .setTitle(isFinal ? "Giveaway Winner" : "🎉 GIVEAWAY CREATED")
-                .setColor(isFinal ? 0x57F287 : 0x5865F2)
+                .setTitle(isFinal ? (isClaimed ? "🏆 Giveaway Claimed!" : "Giveaway Winner") : "🎉 GIVEAWAY CREATED")
+                .setColor(isClaimed ? 0xED4245 : (isFinal ? 0x57F287 : 0x5865F2))
                 .setImage(`attachment://w.png`)
                 .setDescription(isFinal 
-                    ? `Giveaway Winner\n🏆 Winner: <@${winner.id}>\n# ${item}\n\n**Participants:**\n${participantList}` 
+                    ? `🏆 Winner: <@${winner.id}>\nStatus: ${isClaimed ? "✅ Claimed" : "⏳ Pending"}\n# ${item}\n\n**Participants:**\n${participantList}` 
                     : `**Host:** <@${interaction.user.id}>\n# ${item}\n\n**Participants (${participants.size})**\n${participantList}`);
 
             const components = [];
@@ -75,9 +73,10 @@ export default {
                     new ButtonBuilder().setCustomId(ENTER_ID).setLabel(`Enter`).setStyle(ButtonStyle.Primary),
                     new ButtonBuilder().setCustomId(START_ID).setLabel("Start").setStyle(ButtonStyle.Success)
                 ));
-            } else {
+            } else if (!isClaimed) {
                 components.push(new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(REROLL_ID).setLabel("Reroll").setStyle(ButtonStyle.Secondary)
+                    new ButtonBuilder().setCustomId(REROLL_ID).setLabel("Reroll").setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId(CLAIM_ID).setLabel("Claimed").setStyle(ButtonStyle.Success)
                 ));
             }
             await interaction.editReply({ embeds: [embed], files: [attachment], components: components }).catch(console.error);
@@ -90,32 +89,27 @@ export default {
                 participants.add(i.user); await i.deferUpdate(); await updateMessage();
             } else if (i.customId === START_ID || i.customId === REROLL_ID) {
                 if (i.user.id !== interaction.user.id) return i.reply({ephemeral: true, content: "Host lang ang pwedeng mag-start!"});
-                
-                if (i.customId === REROLL_ID && lastWinTime && (Date.now() - lastWinTime > 25 * 60000)) {
-                    return i.reply({ephemeral: true, content: "Giveaway ended!"});
-                }
-                
                 const pList = [...participants];
                 if (pList.length === 0) return i.reply({ephemeral: true, content: "Walang participants!"});
-
-                await i.deferUpdate(); 
-
+                
+                await i.deferUpdate();
                 const winnerIdx = Math.floor(Math.random() * pList.length);
                 winner = pList[winnerIdx];
                 const sliceAngle = (2 * Math.PI) / pList.length;
                 const targetRotation = -(winnerIdx * sliceAngle) - (sliceAngle / 2) + (3 * 2 * Math.PI);
-
-                for (let j = 0; j <= 10; j++) {
-                    finalRotation = targetRotation * (1 - Math.pow(1 - (j / 10), 3));
+                
+                for (let j = 0; j <= 5; j++) {
+                    finalRotation = targetRotation * (j / 5);
                     const buffer = await generateWheelImage(pList, finalRotation);
-                    await interaction.editReply({ 
-                        embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setImage('attachment://w.png')],
-                        files: [new AttachmentBuilder(buffer, { name: 'w.png' })],
-                        components: [] 
-                    });
-                    await sleep(1000);
+                    await interaction.editReply({ embeds: [new EmbedBuilder().setTitle("🎰 ROLLING...").setImage('attachment://w.png')], files: [new AttachmentBuilder(buffer, { name: 'w.png' })], components: [] });
+                    await sleep(500);
                 }
-                lastWinTime = Date.now();
+                finalRotation = targetRotation;
+                await updateMessage(true);
+            } else if (i.customId === CLAIM_ID) {
+                if (i.user.id !== winner.id && i.user.id !== interaction.user.id) return i.reply({ephemeral: true, content: "Winner o Host lang ang pwedeng mag-claim!"});
+                isClaimed = true;
+                await i.deferUpdate();
                 await updateMessage(true);
             }
         });
